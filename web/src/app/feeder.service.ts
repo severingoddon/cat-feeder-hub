@@ -81,7 +81,8 @@ export interface SupplyEntry {
   kind: 'order' | 'stock'; // Bestellung oder von Hand gezählter Vorrat
   ts: string;
   grams: number;
-  arrives: string; // Bestellung: ts + Lieferfrist
+  arrives: string; // Bestellung: bestätigt angekommen, sonst geschätzt ts + Lieferfrist
+  confirmed: boolean; // „Ist angekommen“ getippt
 }
 
 /** Vorrat und Hochrechnung vom Backend. known = false, solange noch nichts erfasst ist. */
@@ -93,7 +94,7 @@ export interface Supply {
   rate: number; // erwarteter Verbrauch in g/Tag
   rateBasis: 'plan' | 'average';
   level?: number; // g jetzt
-  pending?: { grams: number; arrives: string }[];
+  pending?: { id: number; grams: number; arrives: string }[];
   runsOut?: string | null;
   daysLeft?: number | null;
   orderBy?: string | null; // ab hier erinnern
@@ -130,6 +131,10 @@ export class FeederService {
 
   addSupply(entry: { kind: 'order' | 'stock'; kg: number; date?: string }): Observable<{ id: number }> {
     return this.http.post<{ id: number }>('/api/supply', entry);
+  }
+
+  confirmArrival(id: number): Observable<unknown> {
+    return this.http.post(`/api/supply/${id}/arrived`, {});
   }
 
   deleteSupply(id: number): Observable<unknown> {

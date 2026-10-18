@@ -32,8 +32,11 @@ def db() -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS skip (feeder TEXT, ts REAL, portions INTEGER, PRIMARY KEY (feeder, ts));
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT);
-        CREATE TABLE IF NOT EXISTS supply (id INTEGER PRIMARY KEY, kind TEXT, ts REAL, grams INTEGER);
+        CREATE TABLE IF NOT EXISTS supply (id INTEGER PRIMARY KEY, kind TEXT, ts REAL, grams INTEGER, arrived REAL);
     """)
+    # ältere history.db ohne Spalte „arrived“ nachrüsten
+    if "arrived" not in [row[1] for row in con.execute("PRAGMA table_info(supply)")]:
+        con.execute("ALTER TABLE supply ADD COLUMN arrived REAL")
     return con
 
 
@@ -84,7 +87,8 @@ def save_settings(values: dict[str, str]) -> None:
 
 
 # ---------- Vorrat & Bestellungen ----------
-# kind = "order": bestellt am ts, kommt DELIVERY_DAYS später an und erhöht dann den Vorrat um grams.
+# kind = "order": bestellt am ts, erhöht den Vorrat um grams, sobald die Lieferung da ist – bestätigt mit
+#   „Ist angekommen“ (arrived), sonst geschätzt DELIVERY_DAYS nach der Bestellung.
 # kind = "stock": Vorrat von Hand gezählt – setzt den Stand zum Zeitpunkt ts absolut auf grams.
 
 DELIVERY_DAYS = 3
@@ -94,6 +98,11 @@ REMINDER_DAYS = 7  # so lange vor dem Auslaufen erscheint die Erinnerung (Puffer
 def add_supply(kind: str, ts: float, grams: int) -> int:
     with db() as con:
         return con.execute("INSERT INTO supply (kind, ts, grams) VALUES (?, ?, ?)", (kind, ts, grams)).lastrowid
+
+
+def confirm_arrival(entry_id: int, ts: float) -> bool:
+    with db() as con:
+        return con.execute("UPDATE supply SET arrived = ? WHERE id = ? AND kind = 'order'", (ts, entry_id)).rowcount > 0
 
 
 def delete_supply(entry_id: int) -> bool:
@@ -109,9 +118,10 @@ def supply(rate: float, grams_per_portion: int) -> dict:
     """
     now = time.time()
     with db() as con:
-        rows = con.execute("SELECT id, kind, ts, grams FROM supply ORDER BY ts").fetchall()
-    entries = [{"id": i, "kind": k, "ts": ts, "grams": g, "arrives": ts + DELIVERY_DAYS * 86400 if k == "order" else ts}
-               for i, k, ts, g in rows]
+        rows = con.execute("SELECT id, kind, ts, grams, arrived FROM supply ORDER BY ts").fetchall()
+    entries = [{"id": i, "kind": k, "ts": ts, "grams": g, "confirmed": arrived is not None,
+                "arrives": arrived or (ts + DELIVERY_DAYS * 86400 if k == "order" else ts)}
+               for i, k, ts, g, arrived in rows]
     out = {"entries": [{**e, "ts": _iso(e["ts"]), "arrives": _iso(e["arrives"])} for e in reversed(entries)],
            "deliveryDays": DELIVERY_DAYS, "reminderDays": REMINDER_DAYS, "rate": round(rate)}
     stocks = [e for e in entries if e["kind"] == "stock"]
@@ -142,7 +152,7 @@ def supply(rate: float, grams_per_portion: int) -> dict:
         **out,
         "known": True,
         "level": round(level),
-        "pending": [{"grams": o["grams"], "arrives": _iso(o["arrives"])} for o in pending],
+        "pending": [{"id": o["id"], "grams": o["grams"], "arrives": _iso(o["arrives"])} for o in pending],
         "runsOut": _iso(runs_out) if runs_out else None,
         "daysLeft": round((runs_out - now) / 86400, 1) if runs_out else None,
         "orderBy": _iso(order_by) if order_by else None,

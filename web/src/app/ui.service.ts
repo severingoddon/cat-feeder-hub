@@ -17,9 +17,9 @@ export function parseDecimal(text: string): number | null {
   return Number(clean);
 }
 
-/** Zahl für ein Textfeld, mit Punkt wie im Rest der App (z. B. 0.7, 16.25). */
+/** Zahl für ein Textfeld, mit Punkt wie im Rest der App, auf 3 Stellen (z. B. 0.7, 16.25, 2.358). */
 export function formatDecimal(n: number): string {
-  return String(Math.round(n * 100) / 100);
+  return String(Math.round(n * 1000) / 1000);
 }
 
 export function pick<T>(items: T[]): T {

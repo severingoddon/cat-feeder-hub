@@ -32,7 +32,12 @@
         @for (m of milestones(); track m.label) {
           <li [class.past]="m.past">
             <span class="ico">{{ m.icon }}</span>
-            <span class="what">{{ m.label }}</span>
+            <span class="what">
+              {{ m.label }}
+              @if (m.order !== null) {
+                <button class="btn secondary arrived" (click)="arrived(m.order, $event)" [disabled]="saving()">Ist angekommen ✓</button>
+              }
+            </span>
             <span class="when">{{ day(m.at) }}</span>
           </li>
         }
@@ -81,8 +86,8 @@
 <section class="card">
   <h2>Vorrat zählen</h2>
   <p class="hint">
-    Was ist gerade noch da (offene Packung plus volle)? Setzt die Rechnung neu auf – praktisch am Anfang oder wenn sie
-    nicht mehr stimmt. Futter im Automaten-Behälter zählt mit.
+    Im Feld steht, was laut Rechnung gerade da ist. Stimmt es nicht, das gewogene Gewicht eintragen: offene und volle
+    Packungen <strong>plus das Futter in beiden Automaten</strong>. Setzt die Rechnung neu auf.
   </p>
   <div class="chips">
     <button type="button" class="pill" (click)="setStock(0)">leer</button>
@@ -95,7 +100,7 @@
       <span>Vorrat jetzt</span>
       <span class="affix">
         <input type="text" inputmode="decimal" autocomplete="off" placeholder="z. B. 2,1"
-               [value]="stockText()" (input)="stockText.set($any($event.target).value)" />
+               [value]="stockText()" (input)="editStock($any($event.target).value)" />
         <em>kg</em>
       </span>
     </label>
@@ -118,15 +123,23 @@
           <span class="what">
             @if (e.kind === 'order') {
               <strong>{{ kg(e.grams) }} kg bestellt</strong>
-              <small>{{ day(e.ts) }} · Lieferung ca. {{ day(e.arrives) }}</small>
+              <small>
+                {{ day(e.ts) }} ·
+                {{ e.confirmed ? 'angekommen ' + day(e.arrives) + ' ✓' : 'Lieferung ca. ' + day(e.arrives) }}
+              </small>
             } @else {
               <strong>{{ kg(e.grams) }} kg gezählt</strong>
               <small>{{ day(e.ts) }}</small>
             }
           </span>
-          <button class="btn ghost" [class.armed]="armedDelete() === e.id" (click)="remove(e)">
-            {{ armedDelete() === e.id ? 'Wirklich?' : 'Löschen' }}
-          </button>
+          <span class="buttons">
+            @if (e.kind === 'order' && !e.confirmed) {
+              <button class="btn secondary arrived" (click)="arrived(e.id, $event)" [disabled]="saving()">Ist angekommen ✓</button>
+            }
+            <button class="btn ghost" [class.armed]="armedDelete() === e.id" (click)="remove(e)">
+              {{ armedDelete() === e.id ? 'Wirklich?' : 'Löschen' }}
+            </button>
+          </span>
         </li>
       }
     </ul>

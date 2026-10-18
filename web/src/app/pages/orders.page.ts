@@ -7,6 +7,7 @@ import { UiService, formatDecimal, parseDecimal, pick } from '../ui.service';
 import { isoDate } from './chart';
 
 const ORDER_LINES = ['Bestellung notiert! Die Chefs reiben sich die Pfoten 😻', 'Nachschub ist unterwegs 📦', 'Eingetragen. Das Buffet bleibt offen 🐟'];
+const ARRIVED_LINES = ['Futter ist da! Die Chefs inspizieren die Lieferung 😼', 'Angekommen – Vorrat aufgefüllt 📦', 'Lieferung verbucht. Buffet gesichert 🐟'];
 const STOCK_LINES = ['Vorrat gezählt, danke! 🧮', 'Notiert – die Rechnung stimmt jetzt wieder 😼'];
 const MAX_PACKS = 20;
 
@@ -39,7 +40,8 @@ export class OrdersPage {
   orderDate = signal(this.today);
   packs = signal(2);
   // Formular „Vorrat zählen“
-  stockText = signal(''); // so wie getippt, Komma oder Punkt
+  stockText = signal(''); // so wie getippt, Komma oder Punkt; vorbelegt mit dem berechneten Vorrat
+  private stockEdited = false; // nach eigener Eingabe nicht mehr mit dem berechneten Wert überschreiben
   stockKg = computed(() => parseDecimal(this.stockText()));
 
   packKg = computed(() => this.food()?.packKg ?? 1.4);
@@ -58,10 +60,10 @@ export class OrdersPage {
     if (!s?.known || !s.runsOut) return [];
     const now = Date.now();
     return [
-      ...(s.pending ?? []).map((p) => ({ icon: '📦', label: `Lieferung kommt (${(p.grams / 1000).toLocaleString('de-CH')} kg)`, at: p.arrives })),
-      { icon: '🛒', label: 'Erinnerung zum Bestellen', at: s.orderBy! },
-      { icon: '⏰', label: `spätestens bestellen (${s.deliveryDays} Tage Lieferfrist)`, at: s.lastChance! },
-      { icon: '🥣', label: 'Vorrat leer', at: s.runsOut },
+      ...(s.pending ?? []).map((p) => ({ icon: '📦', label: `Lieferung erwartet (${this.kg(p.grams)} kg)`, at: p.arrives, order: p.id })),
+      { icon: '🛒', label: 'Erinnerung zum Bestellen', at: s.orderBy!, order: null },
+      { icon: '⏰', label: `spätestens bestellen (${s.deliveryDays} Tage Lieferfrist)`, at: s.lastChance!, order: null },
+      { icon: '🥣', label: 'Vorrat leer', at: s.runsOut, order: null },
     ]
       .map((m) => ({ ...m, past: new Date(m.at).getTime() < now }))
       .sort((a, b) => a.at.localeCompare(b.at));
@@ -84,6 +86,7 @@ export class OrdersPage {
     forkJoin([this.api.supply(), this.api.food()]).subscribe({
       next: ([supply, food]) => {
         this.supply.set(supply);
+        if (!this.stockEdited) this.stockText.set(supply.known ? formatDecimal((supply.level ?? 0) / 1000) : '');
         this.food.set(food);
         this.error.set(supply.error ? 'Cloud gerade nicht erreichbar, rechne mit dem letzten Stand 🙀' : null);
         this.loading.set(false);
@@ -100,7 +103,12 @@ export class OrdersPage {
   }
 
   setStock(kg: number): void {
-    this.stockText.set(formatDecimal(kg));
+    this.editStock(formatDecimal(kg));
+  }
+
+  editStock(text: string): void {
+    this.stockEdited = true;
+    this.stockText.set(text);
   }
 
   saveOrder(event: MouseEvent): void {
@@ -113,6 +121,24 @@ export class OrdersPage {
     if (this.saving() || kg === null || kg < 0 || kg > 100) return;
     // 0 kg ist erlaubt („alles leer“), das Backend will aber > 0 → 1 g
     this.save({ kind: 'stock', kg: Math.max(kg, 0.001) }, event, STOCK_LINES, ['🧮', '🐾', '✨']);
+  }
+
+  arrived(id: number, event: MouseEvent): void {
+    if (this.saving()) return;
+    this.saving.set(true);
+    this.api.confirmArrival(id).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.stockEdited = false; // Vorrat im Feld gleich mit der Lieferung neu eintragen
+        this.ui.showToast(pick(ARRIVED_LINES));
+        this.ui.burst(event, ['📦', '🐟', '😻']);
+        this.load();
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.ui.showToast(`Hoppla, das ging nicht 🙀 (${e.error?.detail ?? e.status})`);
+      },
+    });
   }
 
   remove(entry: SupplyEntry): void {
@@ -132,7 +158,7 @@ export class OrdersPage {
   }
 
   kg(grams: number): string {
-    return (grams / 1000).toLocaleString('de-CH', { maximumFractionDigits: 2 });
+    return (grams / 1000).toLocaleString('de-CH', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
 
   private save(entry: { kind: 'order' | 'stock'; kg: number; date?: string }, event: MouseEvent, lines: string[], chars: string[]): void {
@@ -140,7 +166,7 @@ export class OrdersPage {
     this.api.addSupply(entry).subscribe({
       next: () => {
         this.saving.set(false);
-        this.stockText.set('');
+        this.stockEdited = false; // load() trägt gleich den neuen Vorrat ein
         this.ui.showToast(pick(lines));
         this.ui.burst(event, chars);
         this.load();

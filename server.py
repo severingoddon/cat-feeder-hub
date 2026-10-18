@@ -358,6 +358,15 @@ async def add_supply(body: SupplyIn):
     return {"ok": True, "id": entry_id}
 
 
+@app.post("/api/supply/{entry_id}/arrived")
+async def supply_arrived(entry_id: int):
+    """Bestellung ist da – zählt ab jetzt zum Vorrat statt erst nach der geschätzten Lieferfrist."""
+    if not history.confirm_arrival(entry_id, time.time()):
+        raise HTTPException(404, "Bestellung nicht gefunden")
+    log.info("Vorrat: Lieferung %d angekommen", entry_id)
+    return {"ok": True}
+
+
 @app.delete("/api/supply/{entry_id}")
 async def delete_supply(entry_id: int):
     if not history.delete_supply(entry_id):
