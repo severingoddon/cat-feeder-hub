@@ -5,7 +5,7 @@ Repo `cat-feeder-hub` · app "Schnauz-Buffet"
 Web app for our two Oneisall cat feeders (PFD-002 PRO IR), running on a Raspberry Pi in the home network.
 The UI is in German; page names below are given as they appear in the app.
 
-**Live (LAN only):** http://192.168.1.51:3008
+Runs in the home network only, on a Raspberry Pi at `http://<pi-ip>:3008`.
 
 ## Features
 
@@ -66,10 +66,8 @@ The UI is in German; page names below are given as they appear in the app.
   when it becomes visible and reloads itself, so the iPhone home screen app picks up deployments.
 - `meal_plan` (DP 1): 5 bytes per meal `[weekday bitmask, hour, minute, portions, enabled]`, `0x7f` = daily.
 
-| Device | IP | Device ID | Protocol |
-|---|---|---|---|
-| Feeder left ("links") | 192.168.1.104 | bf96336877275e5df5unjx | 3.5 |
-| Feeder right ("rechts") | 192.168.1.81 | bf0b9b093ec4987bd1ewhp | 3.4 |
+Device IDs, IPs, local keys and protocol versions of the two feeders ("links" = left, "rechts" = right) live in
+`feeders.json` (not committed). Copy `feeders.example.json` and fill in the values from `python -m tinytuya wizard`.
 
 ## Files
 
@@ -82,8 +80,8 @@ The UI is in German; page names below are given as they appear in the app.
 | `web/` | Angular frontend (mobile first) |
 | `DESIGN.md` | Colour and UI guidelines (theme "Erde") for new features |
 | `futtermessung.md` | Plan for measuring actual consumption with load cells under the feeders |
-| `feeders.json` | Devices incl. local keys – **secret, do not commit** |
-| `tinytuya.json` | Tuya cloud access (project "NaserProject", iot.tuya.com) – **secret** |
+| `feeders.json` | Devices incl. IPs and local keys – **secret, do not commit** (template: `feeders.example.json`) |
+| `tinytuya.json` | Tuya cloud access (created by `tinytuya wizard`) – **secret, do not commit** |
 | `addons/`, `start.sh`, `captures/` | mitmproxy setup from the analysis phase (see below) |
 
 ## Development (Mac)
@@ -105,9 +103,10 @@ Runs as systemd service `naser-buffet` on port **3008** in `/home/pi/NaserBuffet
 
 ```bash
 cd web && npx ng build && cd ..
-rsync -az server.py feeder.py history.py requirements-pi.txt pi@192.168.1.51:NaserBuffet/
-rsync -az --delete web/dist/web/browser/ pi@192.168.1.51:NaserBuffet/web/dist/web/browser/
-ssh pi@192.168.1.51 'sudo systemctl restart naser-buffet'
+PI=pi@<pi-ip>
+rsync -az server.py feeder.py history.py requirements-pi.txt $PI:NaserBuffet/
+rsync -az --delete web/dist/web/browser/ $PI:NaserBuffet/web/dist/web/browser/
+ssh $PI 'sudo systemctl restart naser-buffet'
 ```
 
 Frontend-only changes don't need the restart. Back up `history.db` on the Pi before schema changes.
@@ -122,10 +121,10 @@ cat ~/NaserBuffet/skips.json          # currently skipped meals
 
 ## Tuya cloud access (extending IoT Core)
 
-The meal plan and the dispense history are read through the Tuya cloud. For that, the project "NaserProject" on the
+The meal plan and the dispense history are read through the Tuya cloud. For that, the cloud project on the
 Tuya Developer Platform needs the **IoT Core** service, which runs as a free **trial** with an expiry date.
 
-- **Project:** https://platform.tuya.com/cloud/basic?id=p1791746381029uh3ce9&toptab=project
+- **Project:** https://platform.tuya.com/cloud → your project
 - **Check expiry and extend:** left **Cloud** → **Cloud Services** → **IoT Core** → **View Details** →
   **Extend Trial Period**. Fill in the short form (private, non-commercial project, 2 feeders); Tuya reviews it within
   a few days. Afterwards the **Expiration Date** moves to a later date.

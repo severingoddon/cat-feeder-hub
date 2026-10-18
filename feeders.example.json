@@ -1,0 +1,16 @@
+{
+  "links": {
+    "name": "Automat links",
+    "id": "<tuya-device-id>",
+    "ip": "<feeder-ip>",
+    "version": 3.5,
+    "local_key": "<local-key>"
+  },
+  "rechts": {
+    "name": "Automat rechts",
+    "id": "<tuya-device-id>",
+    "ip": "<feeder-ip>",
+    "version": 3.4,
+    "local_key": "<local-key>"
+  }
+}
