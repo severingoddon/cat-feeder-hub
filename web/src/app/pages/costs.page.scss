@@ -43,6 +43,30 @@
   }
 }
 
+// ---------- Link zu den Bestellungen ----------
+.supply-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  background: var(--meal);
+  border: 1.5px dashed var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.85rem;
+
+  .ico { font-size: 1.2rem; }
+  .go { margin-left: auto; color: var(--muted); }
+
+  &.low {
+    background: var(--danger-bg);
+    border: 2px solid var(--danger);
+    color: var(--danger);
+  }
+}
+
 // ---------- Kostenverlauf ----------
 .swatch.line {
   height: 0;
@@ -126,43 +150,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     margin-top: 8px;
-  }
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.75rem;
-  color: var(--muted);
-  min-width: 0;
-
-  input {
-    width: 100%;
-    min-width: 0;
-    border: 1.5px solid var(--line);
-    border-radius: 12px;
-    background: var(--meal);
-    color: var(--ink);
-    padding: 9px 10px;
-    font-size: 1rem; // ≥ 16px, sonst zoomt Safari beim Antippen
-
-    &:focus {
-      outline: none;
-      border-color: var(--copper);
-    }
-  }
-}
-
-.affix {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  em {
-    font-style: normal;
-    color: var(--muted);
-    font-size: 0.85rem;
   }
 }
 

@@ -9,7 +9,9 @@ eine Portion manuell zu füttern (Knopf unter dem Namen, zweimal tippen zum Best
 für beide Automaten), Uhrzeit und Portionen ändern, Zeiten löschen. Die **Schnauz-Analyse** (`/analyse`) zeigt, wie viel
 Futter tatsächlich ausgegeben wurde (Gramm pro Tag, Tagesrhythmus, ausgesetzte und von Hand gefütterte Portionen).
 Die **Futterkosten** (`/kosten`) rechnen das mit dem Kilopreis in CHF um: pro Tag, Monat, Jahr und Katze, Reichweite
-einer Packung und eine Prognose für die nächsten 30 Tage.
+einer Packung und eine Prognose für die nächsten 30 Tage. Unter **Futterbestellungen** (`/bestellungen`) erfasst man
+Bestellungen und den aktuellen Vorrat; die App rechnet aus, wann das Futter ausgeht, und zeigt 7 Tage vorher auf der
+Hauptseite einen roten Hinweis „Futter bestellen“.
 
 **Mengen:** Jeder Automat hat zwei Näpfe, pro Portion fallen in jeden Napf 7 g, also **14 g pro Portion und Automat**
 (Konstanten in `web/src/app/feeder.service.ts`).
@@ -32,7 +34,12 @@ einer Packung und eine Prognose für die nächsten 30 Tage.
   nicht ewig aufbewahrt. Eine Ausgabe gilt als „extra“, wenn sie nicht innerhalb von 3 min nach einer Planzeit
   (laut damals gültigem `meal_plan`) kommt. Ausgesetzte Mahlzeiten trägt der Server selbst ein, sobald sie abgelaufen sind.
 - **Futterpreis** (`GET`/`PUT /api/food`): Produktname, CHF pro kg und Packungsgrösse, gespeichert in `history.db`
-  (Tabelle `setting`). Standard: Purina Pro Plan LiveClear Kitten Truthahn, CHF 16.25/kg, Sparpaket 2 × 1.4 kg.
+  (Tabelle `setting`). Standard: Purina Pro Plan LiveClear Kitten Truthahn, CHF 16.25/kg, Packung 1.4 kg.
+- **Vorrat** (`GET`/`POST /api/supply`, `DELETE /api/supply/{id}`, Tabelle `supply` in `history.db`): Einträge sind
+  Bestellungen (kommen nach 3 Tagen an) oder von Hand gezählter Vorrat (setzt den Stand neu). Vorrat jetzt = letzte
+  Zählung + seither angekommene Lieferungen − seither ausgegebenes Futter. Hochgerechnet wird vorsichtig mit dem
+  Grösseren aus aktuellem Plan und Schnitt der letzten 7 Tage. Erinnerung 7 Tage vor dem Auslaufen, „spätestens
+  bestellen“ 3 Tage vorher (`DELIVERY_DAYS`, `REMINDER_DAYS` in `history.py`).
 - `meal_plan` (DP 1): 5 Bytes pro Mahlzeit `[Wochentage-Bitmaske, Stunde, Minute, Portionen, aktiv]`, `0x7f` = täglich.
 
 | Gerät | IP | Device ID | Protokoll |

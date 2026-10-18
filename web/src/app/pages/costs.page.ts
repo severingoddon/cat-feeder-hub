@@ -1,8 +1,9 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { AnalysisResponse, CATS, FeederService, Food, GRAMS_PER_PORTION } from '../feeder.service';
-import { UiService, pick } from '../ui.service';
+import { RouterLink } from '@angular/router';
+import { AnalysisResponse, CATS, FeederService, Food, GRAMS_PER_PORTION, Supply } from '../feeder.service';
+import { UiService, formatDecimal, parseDecimal, pick } from '../ui.service';
 import { isoDate, niceStep, parseDate } from './chart';
 
 /** Ein Tag im Kostenverlauf. projected = Prognose aus dem Schnitt, noch nicht passiert. */
@@ -30,7 +31,7 @@ const chf = (v: number) => v.toLocaleString('de-CH', { style: 'currency', curren
 
 @Component({
   selector: 'app-costs-page',
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, RouterLink],
   templateUrl: './costs.page.html',
   styleUrl: './costs.page.scss',
 })
@@ -47,7 +48,9 @@ export class CostsPage {
 
   data = signal<AnalysisResponse | null>(null);
   food = signal<Food | null>(null);
-  draft = signal<Food | null>(null); // Eingaben im Formular, gespeichert erst mit „Speichern“
+  supply = signal<Supply | null>(null);
+  // Eingaben im Formular als Text (Komma oder Punkt erlaubt), gespeichert erst mit „Speichern“
+  draft = signal<{ name: string; pricePerKg: string; packKg: string } | null>(null);
   loading = signal(true);
   saving = signal(false);
   error = signal<string | null>(null);
@@ -56,15 +59,24 @@ export class CostsPage {
 
   private chartBox = viewChild<ElementRef<HTMLElement>>('chartBox');
 
+  /** Formular als Zahlen gelesen; null, wenn etwas fehlt oder keine Zahl ist. */
+  parsed = computed<Food | null>(() => {
+    const d = this.draft();
+    const price = d && parseDecimal(d.pricePerKg);
+    const pack = d && parseDecimal(d.packKg);
+    return d && price !== null && pack !== null ? { name: d.name.trim(), pricePerKg: price, packKg: pack } : null;
+  });
+
   dirty = computed(() => {
     const f = this.food();
     const d = this.draft();
-    return !!f && !!d && (f.name !== d.name || f.pricePerKg !== d.pricePerKg || f.packKg !== d.packKg);
+    const p = this.parsed();
+    return !!f && !!d && (!p || f.name !== p.name || f.pricePerKg !== p.pricePerKg || f.packKg !== p.packKg);
   });
 
   valid = computed(() => {
-    const d = this.draft();
-    return !!d && d.name.trim().length > 0 && d.pricePerKg > 0 && d.pricePerKg <= 500 && d.packKg > 0 && d.packKg <= 50;
+    const p = this.parsed();
+    return !!p && p.name.length > 0 && p.pricePerKg > 0 && p.pricePerKg <= 500 && p.packKg > 0 && p.packKg <= 50;
   });
 
   /** Gramm pro Tag (beide Automaten) seit dem ersten Eintrag im Verlauf. */
@@ -208,11 +220,12 @@ export class CostsPage {
 
   load(): void {
     this.loading.set(true);
-    forkJoin([this.api.analysis(HISTORY_DAYS), this.api.food()]).subscribe({
-      next: ([data, food]) => {
+    forkJoin([this.api.analysis(HISTORY_DAYS), this.api.food(), this.api.supply()]).subscribe({
+      next: ([data, food, supply]) => {
         this.data.set(data);
+        this.supply.set(supply);
         this.food.set(food);
-        this.draft.set({ ...food });
+        this.draft.set(this.toDraft(food));
         this.error.set(data.error ? 'Cloud gerade nicht erreichbar, rechne mit dem letzten Stand 🙀' : null);
         this.loading.set(false);
       },
@@ -223,25 +236,25 @@ export class CostsPage {
     });
   }
 
-  edit(field: keyof Food, value: string): void {
+  // Der Text bleibt so, wie getippt – nicht zurückschreiben, sonst verschwindet z. B. das Komma in „16,“
+  edit(field: 'name' | 'pricePerKg' | 'packKg', value: string): void {
     const d = this.draft();
-    if (!d) return;
-    this.draft.set({ ...d, [field]: field === 'name' ? value : Number(value.replace(',', '.')) });
+    if (d) this.draft.set({ ...d, [field]: value });
   }
 
   reset(): void {
     const f = this.food();
-    if (f) this.draft.set({ ...f });
+    if (f) this.draft.set(this.toDraft(f));
   }
 
   save(event: MouseEvent): void {
-    const d = this.draft();
-    if (!d || !this.valid() || this.saving()) return;
+    const p = this.parsed();
+    if (!p || !this.valid() || this.saving()) return;
     this.saving.set(true);
-    this.api.saveFood({ ...d, name: d.name.trim() }).subscribe({
+    this.api.saveFood(p).subscribe({
       next: (food) => {
         this.food.set(food);
-        this.draft.set({ ...food });
+        this.draft.set(this.toDraft(food));
         this.saving.set(false);
         this.ui.showToast(pick(SAVE_LINES));
         this.ui.burst(event, ['💰', '🐟', '✨']);
@@ -253,8 +266,16 @@ export class CostsPage {
     });
   }
 
+  private toDraft(food: Food) {
+    return { name: food.name, pricePerKg: formatDecimal(food.pricePerKg), packKg: formatDecimal(food.packKg) };
+  }
+
   long(date: string): string {
     return parseDate(date).toLocaleDateString('de-CH', { weekday: 'short', day: 'numeric', month: 'numeric' });
+  }
+
+  day(iso: string): string {
+    return new Date(iso).toLocaleDateString('de-CH', { weekday: 'short', day: 'numeric', month: 'numeric' });
   }
 
   short(date: string): string {

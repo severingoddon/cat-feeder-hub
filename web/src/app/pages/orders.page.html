@@ -1,0 +1,134 @@
+<header class="hero compact">
+  <p class="kicker">Nachschub für die Chefs 📦</p>
+  <h1>Futterbestellungen</h1>
+  <p class="sub">Wann muss neues Futter her?</p>
+  <button class="round-btn refresh" (click)="load()" [class.spin]="loading()" aria-label="Neu laden">↻</button>
+</header>
+
+@if (error()) {
+  <div class="banner">{{ error() }}</div>
+}
+
+<app-supply-alert [supply]="supply()" [link]="false" />
+
+@if (supply(); as s) {
+  @if (s.known && s.runsOut) {
+    <section class="status" [class.low]="s.reminder || s.gap">
+      <span class="label">Vorrat reicht noch</span>
+      <strong>ca. {{ daysLeft() }} {{ daysLeft() === 1 ? 'Tag' : 'Tage' }}</strong>
+      <p>bis {{ day(s.runsOut) }}</p>
+      <div class="meter" role="img" [attr.aria-label]="'Vorrat ' + kg(s.level ?? 0) + ' kg'">
+        <span [style.width.%]="fill() * 100"></span>
+      </div>
+      <small>
+        jetzt ca. {{ kg(s.level ?? 0) }} kg ({{ levelPacks() | number: '1.1-1' }} Packungen)
+        @if (s.pending?.length) { · {{ s.pending!.length }} Lieferung unterwegs }
+      </small>
+    </section>
+
+    <section class="card">
+      <h2>Was kommt wann</h2>
+      <ol class="milestones">
+        @for (m of milestones(); track m.label) {
+          <li [class.past]="m.past">
+            <span class="ico">{{ m.icon }}</span>
+            <span class="what">{{ m.label }}</span>
+            <span class="when">{{ day(m.at) }}</span>
+          </li>
+        }
+      </ol>
+      <p class="hint">
+        Gerechnet mit {{ s.rate }} g pro Tag
+        ({{ s.rateBasis === 'plan' ? 'aktueller Futterplan' : 'Schnitt der letzten 7 Tage' }}, je nachdem, was mehr ist).
+        Die Erinnerung kommt {{ s.reminderDays }} Tage vor dem Auslaufen.
+      </p>
+    </section>
+  } @else if (!loading()) {
+    <section class="card intro">
+      <h2>Noch keine Angaben</h2>
+      <p>
+        Damit die App weiss, wann das Futter ausgeht, trag unten ein, <strong>wie viel gerade noch da ist</strong>.
+        Danach jede neue Bestellung erfassen – den Rest rechnet die App mit dem, was die Automaten ausgeben.
+      </p>
+    </section>
+  }
+}
+
+<section class="card">
+  <h2>Bestellung erfassen</h2>
+  <p class="hint">Kommt nach {{ supply()?.deliveryDays ?? 3 }} Tagen an und zählt ab dann zum Vorrat.</p>
+
+  <div class="row">
+    <label class="form-field">
+      <span>Bestellt am</span>
+      <input type="date" [max]="today" [value]="orderDate()" (input)="orderDate.set($any($event.target).value)" />
+    </label>
+    <div class="form-field">
+      <span id="packs-label">Packungen à {{ packKg() }} kg</span>
+      <div class="stepper" role="group" aria-labelledby="packs-label">
+        <button type="button" (click)="stepPacks(-1)" [disabled]="packs() <= 1" aria-label="Eine Packung weniger">−</button>
+        <strong aria-live="polite">{{ packs() }}</strong>
+        <button type="button" (click)="stepPacks(1)" [disabled]="packs() >= maxPacks" aria-label="Eine Packung mehr">+</button>
+      </div>
+    </div>
+  </div>
+  <p class="sum">= {{ kg(orderKg() * 1000) }} kg · {{ chf(orderPrice()) }}</p>
+  <button class="btn primary wide" (click)="saveOrder($event)" [disabled]="saving() || !orderDate() || orderDate() > today">
+    {{ saving() ? 'speichert …' : '📦 Bestellung speichern' }}
+  </button>
+</section>
+
+<section class="card">
+  <h2>Vorrat zählen</h2>
+  <p class="hint">
+    Was ist gerade noch da (offene Packung plus volle)? Setzt die Rechnung neu auf – praktisch am Anfang oder wenn sie
+    nicht mehr stimmt. Futter im Automaten-Behälter zählt mit.
+  </p>
+  <div class="chips">
+    <button type="button" class="pill" (click)="setStock(0)">leer</button>
+    <button type="button" class="pill" (click)="setStock(packKg() / 2)">½ Packung</button>
+    <button type="button" class="pill" (click)="setStock(packKg())">1 Packung</button>
+    <button type="button" class="pill" (click)="setStock(packKg() * 2)">2 Packungen</button>
+  </div>
+  <div class="row single">
+    <label class="form-field">
+      <span>Vorrat jetzt</span>
+      <span class="affix">
+        <input type="text" inputmode="decimal" autocomplete="off" placeholder="z. B. 2,1"
+               [value]="stockText()" (input)="stockText.set($any($event.target).value)" />
+        <em>kg</em>
+      </span>
+    </label>
+    <button class="btn secondary" (click)="saveStock($event)" [disabled]="saving() || stockKg() === null || stockKg()! < 0 || stockKg()! > 100">
+      Vorrat speichern
+    </button>
+  </div>
+  @if (stockText().trim() && (stockKg() === null || stockKg()! > 100)) {
+    <p class="invalid">Bitte eine Zahl zwischen 0 und 100 kg eingeben, z. B. 2,1.</p>
+  }
+</section>
+
+@if (supply()?.entries?.length) {
+  <section class="card">
+    <h2>Verlauf</h2>
+    <ul class="entries">
+      @for (e of supply()!.entries; track e.id) {
+        <li>
+          <span class="ico">{{ e.kind === 'order' ? '📦' : '🧮' }}</span>
+          <span class="what">
+            @if (e.kind === 'order') {
+              <strong>{{ kg(e.grams) }} kg bestellt</strong>
+              <small>{{ day(e.ts) }} · Lieferung ca. {{ day(e.arrives) }}</small>
+            } @else {
+              <strong>{{ kg(e.grams) }} kg gezählt</strong>
+              <small>{{ day(e.ts) }}</small>
+            }
+          </span>
+          <button class="btn ghost" [class.armed]="armedDelete() === e.id" (click)="remove(e)">
+            {{ armedDelete() === e.id ? 'Wirklich?' : 'Löschen' }}
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+}

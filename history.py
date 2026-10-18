@@ -32,6 +32,7 @@ def db() -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS skip (feeder TEXT, ts REAL, portions INTEGER, PRIMARY KEY (feeder, ts));
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
         CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS supply (id INTEGER PRIMARY KEY, kind TEXT, ts REAL, grams INTEGER);
     """)
     return con
 
@@ -80,6 +81,80 @@ def load_settings() -> dict[str, str]:
 def save_settings(values: dict[str, str]) -> None:
     with db() as con:
         con.executemany("INSERT OR REPLACE INTO setting VALUES (?, ?)", values.items())
+
+
+# ---------- Vorrat & Bestellungen ----------
+# kind = "order": bestellt am ts, kommt DELIVERY_DAYS später an und erhöht dann den Vorrat um grams.
+# kind = "stock": Vorrat von Hand gezählt – setzt den Stand zum Zeitpunkt ts absolut auf grams.
+
+DELIVERY_DAYS = 3
+REMINDER_DAYS = 7  # so lange vor dem Auslaufen erscheint die Erinnerung (Puffer für längere Lieferfristen)
+
+
+def add_supply(kind: str, ts: float, grams: int) -> int:
+    with db() as con:
+        return con.execute("INSERT INTO supply (kind, ts, grams) VALUES (?, ?, ?)", (kind, ts, grams)).lastrowid
+
+
+def delete_supply(entry_id: int) -> bool:
+    with db() as con:
+        return con.execute("DELETE FROM supply WHERE id = ?", (entry_id,)).rowcount > 0
+
+
+def supply(rate: float, grams_per_portion: int) -> dict:
+    """Vorrat jetzt und Hochrechnung, wann er ausgeht. rate = erwarteter Verbrauch in g pro Tag.
+
+    Ausgangspunkt ist der letzte gezählte Vorrat; ohne Zählung beginnt die Rechnung bei der ersten Bestellung mit 0 g.
+    Dazu kommen alle Lieferungen, die danach angekommen sind, minus alles, was die Automaten seither ausgegeben haben.
+    """
+    now = time.time()
+    with db() as con:
+        rows = con.execute("SELECT id, kind, ts, grams FROM supply ORDER BY ts").fetchall()
+    entries = [{"id": i, "kind": k, "ts": ts, "grams": g, "arrives": ts + DELIVERY_DAYS * 86400 if k == "order" else ts}
+               for i, k, ts, g in rows]
+    out = {"entries": [{**e, "ts": _iso(e["ts"]), "arrives": _iso(e["arrives"])} for e in reversed(entries)],
+           "deliveryDays": DELIVERY_DAYS, "reminderDays": REMINDER_DAYS, "rate": round(rate)}
+    stocks = [e for e in entries if e["kind"] == "stock"]
+    orders = [e for e in entries if e["kind"] == "order"]
+    if not entries:
+        return {**out, "known": False}
+
+    base = stocks[-1] if stocks else {"ts": orders[0]["ts"], "grams": 0}
+    counted = [o for o in orders if o["arrives"] > base["ts"]]
+    with db() as con:
+        portions = con.execute("SELECT COALESCE(SUM(portions), 0) FROM feed WHERE ts > ?", (base["ts"],)).fetchone()[0]
+    level = base["grams"] + sum(o["grams"] for o in counted if o["arrives"] <= now) - portions * grams_per_portion
+    level = max(level, 0)
+    pending = [o for o in counted if o["arrives"] > now]
+
+    # Vorrat in die Zukunft fortschreiben; Lieferungen kommen dazu, sobald sie da sind
+    t, rest, gap = now, float(level), None
+    per_second = rate / 86400 if rate > 0 else 0
+    for o in pending:
+        if per_second and rest / per_second < o["arrives"] - t and gap is None:
+            gap = {"from": _iso(t + rest / per_second), "until": _iso(o["arrives"])}  # leer, bevor die Lieferung da ist
+        rest = max(rest - per_second * (o["arrives"] - t), 0) + o["grams"]
+        t = o["arrives"]
+    runs_out = t + rest / per_second if per_second else None
+    order_by = runs_out - REMINDER_DAYS * 86400 if runs_out else None
+    last_chance = runs_out - DELIVERY_DAYS * 86400 if runs_out else None
+    return {
+        **out,
+        "known": True,
+        "level": round(level),
+        "pending": [{"grams": o["grams"], "arrives": _iso(o["arrives"])} for o in pending],
+        "runsOut": _iso(runs_out) if runs_out else None,
+        "daysLeft": round((runs_out - now) / 86400, 1) if runs_out else None,
+        "orderBy": _iso(order_by) if order_by else None,
+        "lastChance": _iso(last_chance) if last_chance else None,
+        "reminder": bool(order_by and now >= order_by),
+        "urgent": bool(last_chance and now >= last_chance),
+        "gap": gap,
+    }
+
+
+def _iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts).isoformat(timespec="minutes")
 
 
 def _minutes(m: Meal) -> int:

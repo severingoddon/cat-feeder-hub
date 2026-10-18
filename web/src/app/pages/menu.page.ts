@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { FeederService, Feeder, GRAMS_PER_BOWL, GRAMS_PER_PORTION, Meal } from '../feeder.service';
+import { FeederService, Feeder, GRAMS_PER_BOWL, GRAMS_PER_PORTION, Meal, Supply } from '../feeder.service';
+import { SupplyAlertComponent } from '../supply/supply-alert.component';
 import { UiService, pick } from '../ui.service';
 
 type MealState = 'served' | 'upcoming' | 'skipped' | 'paused';
@@ -29,6 +30,7 @@ const UNSKIP_LINES = ['Juhu, Futter ist zurück! 🎉', 'Gnade gewährt. Napf wi
 
 @Component({
   selector: 'app-menu-page',
+  imports: [SupplyAlertComponent],
   templateUrl: './menu.page.html',
   styleUrl: './menu.page.scss',
 })
@@ -37,6 +39,7 @@ export class MenuPage {
   readonly ui = inject(UiService);
 
   feeders = signal<Feeder[]>([]);
+  supply = signal<Supply | null>(null);
   now = signal(new Date());
   loading = signal(true);
   error = signal<string | null>(null);
@@ -99,6 +102,7 @@ export class MenuPage {
 
   reload(refresh = false): void {
     if (refresh) this.loading.set(true);
+    this.api.supply().subscribe({ next: (s) => this.supply.set(s), error: () => this.supply.set(null) });
     this.api.load(refresh).subscribe({
       next: (res) => {
         this.feeders.set(res.feeders);

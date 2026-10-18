@@ -522,6 +522,61 @@ input {
 }
 
 
+// Auswahl-Pillen (Zeitraum, Schnellwahl)
+.pill {
+  border: 1.5px dashed var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+
+  &.active {
+    border: 1.5px solid var(--copper);
+    background: var(--surface);
+    color: var(--sand);
+  }
+}
+
+// Eingabefelder mit Beschriftung, optional mit Einheit davor/dahinter
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  min-width: 0;
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: var(--meal);
+    color: var(--ink);
+    padding: 9px 10px;
+    font-size: 1rem; // ≥ 16px, sonst zoomt Safari beim Antippen
+
+    &:focus {
+      outline: none;
+      border-color: var(--copper);
+    }
+  }
+}
+
+.affix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  em {
+    font-style: normal;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+}
+
 // ---------- Animationen ----------
 @keyframes wiggle {
   0%, 100% { transform: rotate(-10deg); }

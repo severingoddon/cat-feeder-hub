@@ -17,22 +17,6 @@
   margin: 4px 0 14px;
 }
 
-.pill {
-  border: 1.5px dashed var(--line);
-  background: transparent;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 0.82rem;
-  font-weight: 500;
-
-  &.active {
-    border: 1.5px solid var(--copper);
-    background: var(--surface);
-    color: var(--sand);
-  }
-}
-
 .swatch {
   &.plan-key {
     height: 0;

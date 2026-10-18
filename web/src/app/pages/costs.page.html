@@ -45,6 +45,20 @@
   </div>
 </section>
 
+<a class="supply-link" routerLink="/bestellungen" [class.low]="supply()?.reminder || supply()?.gap">
+  <span class="ico">📦</span>
+  @if (supply(); as s) {
+    @if (s.known && s.runsOut) {
+      <span>Vorrat reicht bis <strong>{{ day(s.runsOut) }}</strong> · bestellen ab {{ day(s.orderBy!) }}</span>
+    } @else {
+      <span>Vorrat noch nicht erfasst – wann muss bestellt werden?</span>
+    }
+  } @else {
+    <span>Futterbestellungen</span>
+  }
+  <span class="go">→</span>
+</a>
+
 <section class="card" #chartBox>
   <h2>Bisher und demnächst</h2>
   <p class="hint">Kosten aufsummiert seit {{ data()?.since ? short(data()!.since!) : '…' }}, gestrichelt die Prognose für {{ forecastDays }} Tage</p>
@@ -115,29 +129,29 @@
     <h2>Das Futter</h2>
     <p class="hint">Der Kilopreis gilt für alle Berechnungen auf dieser Seite, auch rückwirkend.</p>
 
-    <label class="field wide">
+    <label class="form-field wide">
       <span>Produkt</span>
       <input type="text" maxlength="80" [value]="d.name" (input)="edit('name', $any($event.target).value)" />
     </label>
     <div class="row">
-      <label class="field">
+      <label class="form-field">
         <span>Preis pro kg</span>
         <span class="affix">
           <em>CHF</em>
-          <input type="number" inputmode="decimal" min="0.05" max="500" step="0.05" [value]="d.pricePerKg"
+          <input type="text" inputmode="decimal" autocomplete="off" [value]="d.pricePerKg"
                  (input)="edit('pricePerKg', $any($event.target).value)" />
         </span>
       </label>
-      <label class="field">
+      <label class="form-field">
         <span>Packung</span>
         <span class="affix">
-          <input type="number" inputmode="decimal" min="0.1" max="50" step="0.1" [value]="d.packKg"
+          <input type="text" inputmode="decimal" autocomplete="off" [value]="d.packKg"
                  (input)="edit('packKg', $any($event.target).value)" />
           <em>kg</em>
         </span>
       </label>
     </div>
-    <p class="pack">= {{ chf(d.packKg * d.pricePerKg || 0) }} pro Packung</p>
+    <p class="pack">= {{ parsed() ? chf(parsed()!.packKg * parsed()!.pricePerKg) : '–' }} pro Packung</p>
 
     @if (dirty()) {
       <div class="actions">

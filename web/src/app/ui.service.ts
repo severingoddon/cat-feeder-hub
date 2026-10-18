@@ -10,6 +10,18 @@ export interface Heart {
 const CAT_COUNT = 15;
 const AVATARS: Partial<Record<string, number>> = { links: 6, rechts: 4 };
 
+/** Dezimalzahl aus einem Textfeld: Komma oder Punkt, leer oder Unsinn → null. */
+export function parseDecimal(text: string): number | null {
+  const clean = text.trim().replace(',', '.');
+  if (!/^\d*\.?\d*$/.test(clean) || !/\d/.test(clean)) return null;
+  return Number(clean);
+}
+
+/** Zahl für ein Textfeld, mit Punkt wie im Rest der App (z. B. 0.7, 16.25). */
+export function formatDecimal(n: number): string {
+  return String(Math.round(n * 100) / 100);
+}
+
 export function pick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }

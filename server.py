@@ -38,8 +38,11 @@ REENABLE_GRACE = timedelta(minutes=2)
 HISTORY_INTERVAL = 900  # Sekunden zwischen zwei Abgleichen mit dem Cloud-Log
 HISTORY_MAX_AGE = 300  # älter als das → die Analyse-Seite stösst selbst einen Abgleich an
 MAX_ANALYSIS_DAYS = 90
-# Futter für die Kostenanalyse – Standard: Purina Pro Plan LiveClear Kitten Truthahn, Sparpaket 2 × 1.4 kg für CHF 45.50
-DEFAULT_FOOD = {"name": "Purina Pro Plan LiveClear Kitten Truthahn", "pricePerKg": 16.25, "packKg": 2.8}
+GRAMS_PER_PORTION = 14  # 2 Näpfe à 7 g – gleiche Zahl wie im Frontend (feeder.service.ts)
+RATE_DAYS = 7  # Verbrauch für die Vorrats-Rechnung: Schnitt der letzten so vielen ganzen Tage
+# Futter für Kosten und Bestellungen – Standard: Purina Pro Plan LiveClear Kitten Truthahn, CHF 16.25/kg
+# (Preis aus dem Sparpaket 2 × 1.4 kg für CHF 45.50), eine Packung = 1.4 kg
+DEFAULT_FOOD = {"name": "Purina Pro Plan LiveClear Kitten Truthahn", "pricePerKg": 16.25, "packKg": 1.4}
 MAX_MEALS = 10
 MAX_PORTIONS = 12
 DAILY = 0x7F
@@ -244,16 +247,18 @@ async def feed(key: str):
     return {"ok": True}
 
 
-@app.get("/api/analysis")
-async def analysis(days: int = 30):
-    """Ausgegebene Portionen pro Tag und Automat, dazu Einzelereignisse und der Soll-Wert laut aktuellem Plan."""
-    days = max(1, min(days, MAX_ANALYSIS_DAYS))
-    error = None
+async def fresh_history() -> str | None:
+    """Gleicht den Verlauf ab, wenn er älter als HISTORY_MAX_AGE ist. Gibt einen Fehlertext zurück, falls das scheitert."""
     if time.time() - history.last_sync() > HISTORY_MAX_AGE:
         try:
             await sync_history()
         except Exception as e:  # dann eben mit dem Stand aus history.db
-            error = str(e)
+            return str(e)
+    return None
+
+
+async def current_plans() -> tuple[dict[str, list[Meal]], list[dict], str | None]:
+    error = None
     skips = load_skips()
     current, feeders = {}, []
     for key, cfg in load_devices().items():
@@ -265,8 +270,17 @@ async def analysis(days: int = 30):
         # Soll = was der Plan an einem normalen Tag ausgibt: aktive plus nur heute ausgesetzte Mahlzeiten
         plan = sum(m.portions for m in meals if m.enabled or f"{key}|{meal_id(m)}" in skips)
         feeders.append({"key": key, "name": cfg["name"], "planPortions": plan})
+    return current, feeders, error
+
+
+@app.get("/api/analysis")
+async def analysis(days: int = 30):
+    """Ausgegebene Portionen pro Tag und Automat, dazu Einzelereignisse und der Soll-Wert laut aktuellem Plan."""
+    days = max(1, min(days, MAX_ANALYSIS_DAYS))
+    sync_error = await fresh_history()
+    current, feeders, error = await current_plans()
     result = await asyncio.to_thread(history.analysis, days, current)
-    return {"now": datetime.now().isoformat(), "feeders": feeders, "error": error, **result}
+    return {"now": datetime.now().isoformat(), "feeders": feeders, "error": sync_error or error, **result}
 
 
 class FoodIn(BaseModel):
@@ -296,6 +310,59 @@ async def put_food(body: FoodIn):
     history.save_settings({"food.name": body.name.strip(), "food.pricePerKg": str(body.pricePerKg), "food.packKg": str(body.packKg)})
     log.info("Futter: %s, CHF %.2f/kg, Packung %.2f kg", body.name, body.pricePerKg, body.packKg)
     return load_food()
+
+
+# ---------- Vorrat & Bestellungen ----------
+
+
+class SupplyIn(BaseModel):
+    kind: str = Field(pattern="^(order|stock)$")
+    date: str | None = None  # YYYY-MM-DD, nur bei Bestellungen; Vorrat gilt immer ab jetzt
+    kg: float = Field(gt=0, le=100)
+
+
+async def expected_rate() -> tuple[float, str]:
+    """Erwarteter Verbrauch in g/Tag – vorsichtig: das Grössere aus Schnitt der letzten ganzen Tage und aktuellem Plan."""
+    current, feeders, _ = await current_plans()
+    plan = sum(f["planPortions"] for f in feeders) * GRAMS_PER_PORTION
+    data = await asyncio.to_thread(history.analysis, RATE_DAYS + 1, current)
+    today = datetime.now().date().isoformat()
+    full = [d for d in data["days"] if d["date"] != today and data["since"] and d["date"] > data["since"]]
+    average = sum(c["portions"] for d in full for c in d["feeders"].values()) * GRAMS_PER_PORTION / len(full) if full else 0
+    return (plan, "plan") if plan >= average else (average, "average")
+
+
+@app.get("/api/supply")
+async def get_supply():
+    error = await fresh_history()
+    rate, basis = await expected_rate()
+    status = await asyncio.to_thread(history.supply, rate, GRAMS_PER_PORTION)
+    return {**status, "rateBasis": basis, "error": error}
+
+
+@app.post("/api/supply")
+async def add_supply(body: SupplyIn):
+    if body.kind == "order":
+        try:
+            day = datetime.fromisoformat(body.date) if body.date else datetime.now()
+        except ValueError:
+            raise HTTPException(422, "Datum ungültig")
+        # Bestellungen von heute zählen ab jetzt, frühere ab Mittag des Bestelltags
+        ts = time.time() if day.date() == datetime.now().date() else day.replace(hour=12, minute=0).timestamp()
+        if ts > time.time() + 60:
+            raise HTTPException(422, "Bestellung liegt in der Zukunft")
+    else:
+        ts = time.time()
+    entry_id = history.add_supply(body.kind, ts, round(body.kg * 1000))
+    log.info("Vorrat: %s %.2f kg", "Bestellung" if body.kind == "order" else "gezählt", body.kg)
+    return {"ok": True, "id": entry_id}
+
+
+@app.delete("/api/supply/{entry_id}")
+async def delete_supply(entry_id: int):
+    if not history.delete_supply(entry_id):
+        raise HTTPException(404, "Eintrag nicht gefunden")
+    return {"ok": True}
 
 
 # ---------- Futterplan bearbeiten ----------
