@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 export const GRAMS_PER_BOWL = 7;
 export const BOWLS_PER_FEEDER = 2;
 export const GRAMS_PER_PORTION = GRAMS_PER_BOWL * BOWLS_PER_FEEDER;
+export const CATS = 3;
 
 export interface Meal {
   id: string; // "HH:MM"
@@ -68,6 +69,13 @@ export interface AnalysisResponse {
   error: string | null;
 }
 
+/** Futter für die Kostenanalyse, im Backend gespeichert. */
+export interface Food {
+  name: string;
+  pricePerKg: number; // CHF
+  packKg: number; // Inhalt einer Packung (Sparpaket 2 × 1.4 kg = 2.8)
+}
+
 @Injectable({ providedIn: 'root' })
 export class FeederService {
   private http = inject(HttpClient);
@@ -78,6 +86,14 @@ export class FeederService {
 
   analysis(days: number): Observable<AnalysisResponse> {
     return this.http.get<AnalysisResponse>('/api/analysis', { params: { days } });
+  }
+
+  food(): Observable<Food> {
+    return this.http.get<Food>('/api/food');
+  }
+
+  saveFood(food: Food): Observable<Food> {
+    return this.http.put<Food>('/api/food', food);
   }
 
   skip(feeder: string, meal: string): Observable<{ skippedFor: string }> {

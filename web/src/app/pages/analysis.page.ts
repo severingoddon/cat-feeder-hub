@@ -1,6 +1,7 @@
 import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { AnalysisResponse, FeederService, GRAMS_PER_BOWL, GRAMS_PER_PORTION } from '../feeder.service';
 import { UiService } from '../ui.service';
+import { isoDate, niceStep, pad, parseDate } from './chart';
 
 /** Ein Tag im Säulendiagramm, alles schon in Gramm. */
 interface Day {
@@ -46,21 +47,10 @@ const PAD = { top: 12, right: 8, bottom: 24, left: 36 };
 const CHART_HEIGHT = 210;
 const RHYTHM_ROW = 30;
 
-const pad = (n: number) => String(n).padStart(2, '0');
-const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const parseDate = (s: string) => new Date(`${s}T12:00:00`);
-
 /** Säule mit 4px-Rundung oben, eckig an der Grundlinie. */
 function bar(x: number, y: number, w: number, h: number, round: boolean): string {
   const r = round ? Math.min(4, h, w / 2) : 0;
   return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
-}
-
-/** Schöne Schrittweite für die y-Achse (10/20/25/50/100 …). */
-function niceStep(max: number): number {
-  const raw = max / 4;
-  const mag = 10 ** Math.floor(Math.log10(raw));
-  return ([1, 2, 2.5, 5, 10].find((f) => f * mag >= raw) ?? 10) * mag;
 }
 
 @Component({

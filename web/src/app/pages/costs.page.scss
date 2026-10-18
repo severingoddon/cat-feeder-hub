@@ -1,0 +1,196 @@
+// Kopf, Banner, Knöpfe sowie Kacheln, Karten und Diagramm-Grundlagen liegen in styles.scss.
+:host {
+  display: block;
+}
+
+.hero.compact {
+  padding-top: 72px;
+
+  h1 { font-size: 2.6rem; }
+}
+
+// ---------- die eine grosse Zahl ----------
+.hero-figure {
+  text-align: center;
+  padding: 18px 16px 16px;
+  margin-bottom: 12px;
+  border-radius: 26px;
+  background: var(--surface);
+  border: 2px solid var(--copper);
+  box-shadow: var(--shadow);
+
+  .label {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  strong {
+    display: block;
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--sand);
+  }
+
+  p {
+    margin: 4px 0 6px;
+    font-weight: 500;
+  }
+
+  small {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+}
+
+// ---------- Kostenverlauf ----------
+.swatch.line {
+  height: 0;
+  width: 16px;
+  border-radius: 0;
+  border-top: 2px solid var(--sand);
+
+  &.dashed { border-top-style: dashed; }
+}
+
+.chart {
+  .line,
+  .forecast {
+    fill: none;
+    stroke: var(--sand);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  // Prognose = noch nicht passiert, darum gestrichelt und leiser
+  .forecast {
+    stroke-dasharray: 5 5;
+    opacity: 0.6;
+  }
+
+  .area {
+    fill: color-mix(in srgb, var(--sand) 10%, transparent);
+  }
+
+  .cursor {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+
+  .end-dot {
+    fill: var(--sand);
+    stroke: var(--panel);
+    stroke-width: 2;
+
+    &.hollow {
+      fill: var(--panel);
+      stroke: var(--sand);
+      stroke-width: 1.5;
+    }
+  }
+
+  .end-label {
+    fill: var(--sand);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .unit { font-size: 10px; }
+}
+
+.facts {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-top: 1px solid var(--soft);
+  }
+
+  dt { color: var(--muted); }
+
+  dd {
+    margin: 0;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// ---------- Futter & Preis ----------
+.food {
+  .row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  min-width: 0;
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: var(--meal);
+    color: var(--ink);
+    padding: 9px 10px;
+    font-size: 1rem; // ≥ 16px, sonst zoomt Safari beim Antippen
+
+    &:focus {
+      outline: none;
+      border-color: var(--copper);
+    }
+  }
+}
+
+.affix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  em {
+    font-style: normal;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+}
+
+.pack {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+  margin-top: 12px;
+
+  .btn { padding: 10px 6px; font-size: 0.85rem; }
+}
+
+.invalid {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+.note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 4px 8px 0;
+  line-height: 1.4;
+}

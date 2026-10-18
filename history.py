@@ -31,6 +31,7 @@ def db() -> sqlite3.Connection:
         CREATE TABLE IF NOT EXISTS plan (feeder TEXT, ts REAL, value TEXT, PRIMARY KEY (feeder, ts));
         CREATE TABLE IF NOT EXISTS skip (feeder TEXT, ts REAL, portions INTEGER, PRIMARY KEY (feeder, ts));
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS setting (key TEXT PRIMARY KEY, value TEXT);
     """)
     return con
 
@@ -68,6 +69,17 @@ def last_sync() -> float:
 def record_skip(feeder: str, at: datetime, portions: int) -> None:
     with db() as con:
         con.execute("INSERT OR IGNORE INTO skip VALUES (?, ?, ?)", (feeder, at.timestamp(), portions))
+
+
+def load_settings() -> dict[str, str]:
+    """Einstellungen aus der App (z. B. Futterpreis). Fehlende Werte ergänzt server.py mit Standardwerten."""
+    with db() as con:
+        return dict(con.execute("SELECT key, value FROM setting").fetchall())
+
+
+def save_settings(values: dict[str, str]) -> None:
+    with db() as con:
+        con.executemany("INSERT OR REPLACE INTO setting VALUES (?, ?)", values.items())
 
 
 def _minutes(m: Meal) -> int:

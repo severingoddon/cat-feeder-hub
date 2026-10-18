@@ -8,6 +8,8 @@ eine Portion manuell zu füttern (Knopf unter dem Namen, zweimal tippen zum Best
 Über das Burger-Menü oben links erreicht man den **Futterplan** (`/plan`): Futterzeiten anlegen (optional gleich
 für beide Automaten), Uhrzeit und Portionen ändern, Zeiten löschen. Die **Schnauz-Analyse** (`/analyse`) zeigt, wie viel
 Futter tatsächlich ausgegeben wurde (Gramm pro Tag, Tagesrhythmus, ausgesetzte und von Hand gefütterte Portionen).
+Die **Futterkosten** (`/kosten`) rechnen das mit dem Kilopreis in CHF um: pro Tag, Monat, Jahr und Katze, Reichweite
+einer Packung und eine Prognose für die nächsten 30 Tage.
 
 **Mengen:** Jeder Automat hat zwei Näpfe, pro Portion fallen in jeden Napf 7 g, also **14 g pro Portion und Automat**
 (Konstanten in `web/src/app/feeder.service.ts`).
@@ -29,6 +31,8 @@ Futter tatsächlich ausgegeben wurde (Gramm pro Tag, Tagesrhythmus, ausgesetzte 
   (Portionen). Ein Hintergrund-Task übernimmt das Tuya-Cloud-Log alle 15 min nach `history.db`, weil die Cloud
   nicht ewig aufbewahrt. Eine Ausgabe gilt als „extra“, wenn sie nicht innerhalb von 3 min nach einer Planzeit
   (laut damals gültigem `meal_plan`) kommt. Ausgesetzte Mahlzeiten trägt der Server selbst ein, sobald sie abgelaufen sind.
+- **Futterpreis** (`GET`/`PUT /api/food`): Produktname, CHF pro kg und Packungsgrösse, gespeichert in `history.db`
+  (Tabelle `setting`). Standard: Purina Pro Plan LiveClear Kitten Truthahn, CHF 16.25/kg, Sparpaket 2 × 1.4 kg.
 - `meal_plan` (DP 1): 5 Bytes pro Mahlzeit `[Wochentage-Bitmaske, Stunde, Minute, Portionen, aktiv]`, `0x7f` = täglich.
 
 | Gerät | IP | Device ID | Protokoll |
@@ -82,13 +86,34 @@ journalctl -u naser-buffet -f
 cat ~/NaserBuffet/skips.json          # aktuell ausgesetzte Mahlzeiten
 ```
 
+## Tuya-Cloud-Zugang (IoT Core verlängern)
+
+Futterplan und Ausgabe-Verlauf werden über die Tuya-Cloud gelesen. Dafür braucht das Projekt „NaserProject“ auf der
+Tuya Developer Platform den Dienst **IoT Core**, und der läuft als kostenlose **Testversion** mit Ablaufdatum.
+
+- **Projekt:** https://platform.tuya.com/cloud/basic?id=p1791746381029uh3ce9&toptab=project
+- **Ablaufdatum prüfen und verlängern:** links **Cloud** → **Cloud Services** → bei **IoT Core** auf **View Details** →
+  **Extend Trial Period**. Kurzes Formular ausfüllen (privates, nicht kommerzielles Projekt, 2 Automaten), Tuya prüft
+  das in ein paar Tagen. Danach springt das **Expiration Date** auf ein späteres Datum.
+- **Verbrauch:** steht in derselben Ansicht unter „Usage/Resource Pack Quota“ (Okt. 2026: ca. 0.5 % des Monatskontingents).
+- Die anderen Dienste im Projekt (Authorization Token Management, Smart Home Basic Service, Data Dashboard) sind permanent.
+
+| Datum | Stand |
+|---|---|
+| 11.10.2026 | Projekt erstellt, Testversion bis 11.11.2026 21:20 |
+| 18.10.2026 | Verlängerung beantragt, wird geprüft |
+
+**Wenn der Zugang abläuft:** Die Automaten füttern weiter nach ihrem gespeicherten Plan, und „1 Portion jetzt“ geht
+weiter (läuft lokal). Hauptseite und Futterplan können den Plan aber nicht mehr laden, Aussetzen und Plan ändern
+schlagen fehl, und `history.db` bekommt keine neuen Ausgaben mehr (die Analyse zeigt den letzten Stand).
+
 ## Wenn etwas nicht geht
 
 - **Gerät antwortet nicht** → IP geändert? `.venv/bin/python -m tinytuya scan`, IP in `feeders.json` anpassen
   (am besten im Router fest reservieren).
 - **Gerät neu in Smart Life eingerichtet** → neue Device-ID + neuer Local Key: `.venv/bin/python -m tinytuya wizard`,
   Werte in `feeders.json` übernehmen.
-- **Cloud-Fehler** → Tuya IoT-Core-Testphase abgelaufen? Auf iot.tuya.com im Projekt verlängern.
+- **Cloud-Fehler** → Tuya IoT-Core-Testphase abgelaufen? Siehe [Tuya-Cloud-Zugang](#tuya-cloud-zugang-iot-core-verlängern).
 
 ## Analysephase (Historie)
 

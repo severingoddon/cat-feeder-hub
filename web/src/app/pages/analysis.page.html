@@ -52,7 +52,7 @@
 
   @if (selectedDay(); as d) {
     <p class="readout" aria-live="polite">
-      <strong>{{ d.long }}{{ d.today ? ' (läuft noch)' : '' }}: {{ d.total }} g</strong>
+      <strong>{{ d.today ? 'heute (läuft noch)' : d.long }}: {{ d.total }} g</strong>
       @for (f of d.feeders; track f.key) {
         <span><span class="dot" [style.background]="color(f.key)"></span>{{ f.grams }} g</span>
       }
@@ -100,8 +100,7 @@
     <p class="empty">Noch keine Ausgaben im Verlauf 🐾</p>
   }
 
-  <details>
-    <summary>Als Tabelle</summary>
+  <div class="table">
     <table>
       <thead>
         <tr>
@@ -115,7 +114,7 @@
       <tbody>
         @for (d of days().slice().reverse(); track d.date) {
           <tr>
-            <td>{{ d.long }}</td>
+            <td>{{ d.today ? 'heute' : d.long }}</td>
             @for (f of d.feeders; track f.key) { <td>{{ f.grams }} g</td> }
             <td><strong>{{ d.total }} g</strong></td>
             <td>{{ d.skipped ? d.skipped + ' g' : '–' }}</td>
@@ -124,7 +123,7 @@
         }
       </tbody>
     </table>
-  </details>
+  </div>
 </section>
 
 <section class="card">

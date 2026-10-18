@@ -1,0 +1,159 @@
+<header class="hero compact">
+  <p class="kicker">Was die Chefs uns kosten 💸</p>
+  <h1>Futterkosten</h1>
+  <p class="sub">Aus ausgegebener Menge und Kilopreis</p>
+  <button class="round-btn refresh" (click)="load()" [class.spin]="loading()" aria-label="Neu laden">↻</button>
+</header>
+
+@if (error()) {
+  <div class="banner">{{ error() }}</div>
+}
+
+<section class="hero-figure">
+  <span class="label">pro Monat, ungefähr</span>
+  <strong>{{ chf(stats().perMonth) }}</strong>
+  <p>
+    {{ chf(stats().perYear) }} pro Jahr · {{ chf(stats().perCatMonth) }} pro Katze und Monat
+  </p>
+  <small>
+    Schnitt aus {{ stats().fullDays }} ganzen {{ stats().fullDays === 1 ? 'Tag' : 'Tagen' }}
+    ({{ stats().gramsPerDay }} g pro Tag für {{ cats }} Katzen)
+    @if (stats().fullDays < 7) { – wird mit jedem Tag genauer }
+  </small>
+</section>
+
+<section class="tiles">
+  <div class="tile">
+    <span class="label">pro Tag</span>
+    <strong>{{ chf(stats().perDay) }}</strong>
+    <small>heute bisher {{ chf(stats().today) }}</small>
+  </div>
+  <div class="tile">
+    <span class="label">pro Portion</span>
+    <strong>{{ chf(stats().perPortion) }}</strong>
+    <small>{{ gramsPerPortion }} g, beide Näpfe</small>
+  </div>
+  <div class="tile">
+    <span class="label">eine Packung reicht</span>
+    <strong>{{ stats().packDays ? (stats().packDays! | number: '1.0-0') + ' Tage' : '–' }}</strong>
+    <small>{{ food()?.packKg }} kg für {{ chf(stats().packPrice) }}</small>
+  </div>
+  <div class="tile">
+    <span class="label">Packungen pro Jahr</span>
+    <strong>{{ stats().packsPerYear ? (stats().packsPerYear! | number: '1.0-0') : '–' }}</strong>
+    <small>{{ stats().kgPerMonth | number: '1.1-1' }} kg pro Monat</small>
+  </div>
+</section>
+
+<section class="card" #chartBox>
+  <h2>Bisher und demnächst</h2>
+  <p class="hint">Kosten aufsummiert seit {{ data()?.since ? short(data()!.since!) : '…' }}, gestrichelt die Prognose für {{ forecastDays }} Tage</p>
+
+  <ul class="legend">
+    <li><span class="swatch line"></span>ausgegeben</li>
+    <li><span class="swatch line dashed"></span>Prognose</li>
+  </ul>
+
+  @if (selectedPoint(); as p) {
+    <p class="readout" aria-live="polite">
+      <strong>{{ p.today ? 'heute (läuft noch)' : long(p.date) }}:</strong>
+      @if (p.projected) {
+        <span>Prognose total {{ chf(p.total) }}</span>
+      } @else {
+        <span>{{ chf(p.cost) }} an dem Tag · total {{ chf(p.total) }}</span>
+      }
+    </p>
+  }
+
+  @if (points().length) {
+    <svg class="chart" [attr.width]="width()" [attr.height]="chartHeight" role="img"
+         [attr.aria-label]="'Futterkosten aufsummiert, bisher ' + chf(stats().total)">
+      @for (t of yTicks(); track t.v) {
+        <line class="grid" [attr.x1]="pad.left" [attr.x2]="width() - pad.right" [attr.y1]="t.y" [attr.y2]="t.y" />
+        <text class="tick" [attr.x]="pad.left - 6" [attr.y]="t.y + 4" text-anchor="end">{{ t.v }}</text>
+      }
+      <text class="tick unit" [attr.x]="pad.left - 6" y="8" text-anchor="end">CHF</text>
+
+      <path class="area" [attr.d]="areaPath()" />
+      <path class="forecast" [attr.d]="forecastPath()" />
+      <path class="line" [attr.d]="linePath()" />
+
+      @if (selectedPoint(); as p) {
+        <line class="cursor" [attr.x1]="p.x" [attr.x2]="p.x" [attr.y1]="pad.top" [attr.y2]="chartHeight - pad.bottom" />
+      }
+      @if (todayPoint(); as t) {
+        <circle class="end-dot" [attr.cx]="t.x" [attr.cy]="t.y" r="5" />
+      }
+      @if (endPoint(); as e) {
+        <circle class="end-dot hollow" [attr.cx]="e.x" [attr.cy]="e.y" r="4.5" />
+        <text class="end-label" [attr.x]="e.x" [attr.y]="e.y - 10" text-anchor="end">≈ {{ chf(e.total) }}</text>
+      }
+
+      @for (l of xLabels(); track l.text) {
+        <text class="tick" [attr.x]="l.x" [attr.y]="chartHeight - 6" [attr.text-anchor]="l.anchor">{{ l.text }}</text>
+      }
+
+      @for (p of points(); track p.date; let i = $index) {
+        <rect class="hit" [attr.x]="p.x - (width() - pad.left - pad.right) / points().length / 2" [attr.y]="pad.top"
+              [attr.width]="(width() - pad.left - pad.right) / points().length" [attr.height]="chartHeight - pad.top - pad.bottom"
+              (mouseenter)="selected.set(p.date)" (click)="selected.set(p.date)" />
+      }
+    </svg>
+  } @else if (!loading()) {
+    <p class="empty">Noch keine Ausgaben im Verlauf 🐾</p>
+  }
+
+  <dl class="facts">
+    <div><dt>bisher ausgegeben</dt><dd>{{ chf(stats().total) }}</dd></div>
+    <div><dt>durch Aussetzen gespart</dt><dd>{{ stats().saved ? chf(stats().saved) : '–' }}</dd></div>
+    <div><dt>Extra-Portionen von Hand</dt><dd>{{ stats().extra ? chf(stats().extra) : '–' }}</dd></div>
+  </dl>
+</section>
+
+@if (draft(); as d) {
+  <section class="card food">
+    <h2>Das Futter</h2>
+    <p class="hint">Der Kilopreis gilt für alle Berechnungen auf dieser Seite, auch rückwirkend.</p>
+
+    <label class="field wide">
+      <span>Produkt</span>
+      <input type="text" maxlength="80" [value]="d.name" (input)="edit('name', $any($event.target).value)" />
+    </label>
+    <div class="row">
+      <label class="field">
+        <span>Preis pro kg</span>
+        <span class="affix">
+          <em>CHF</em>
+          <input type="number" inputmode="decimal" min="0.05" max="500" step="0.05" [value]="d.pricePerKg"
+                 (input)="edit('pricePerKg', $any($event.target).value)" />
+        </span>
+      </label>
+      <label class="field">
+        <span>Packung</span>
+        <span class="affix">
+          <input type="number" inputmode="decimal" min="0.1" max="50" step="0.1" [value]="d.packKg"
+                 (input)="edit('packKg', $any($event.target).value)" />
+          <em>kg</em>
+        </span>
+      </label>
+    </div>
+    <p class="pack">= {{ chf(d.packKg * d.pricePerKg || 0) }} pro Packung</p>
+
+    @if (dirty()) {
+      <div class="actions">
+        <button class="btn secondary" (click)="reset()" [disabled]="saving()">Verwerfen</button>
+        <button class="btn primary" (click)="save($event)" [disabled]="!valid() || saving()">
+          {{ saving() ? 'speichert …' : 'Speichern' }}
+        </button>
+      </div>
+      @if (!valid()) {
+        <p class="invalid">Preis zwischen 0 und 500 CHF, Packung zwischen 0 und 50 kg.</p>
+      }
+    }
+  </section>
+}
+
+<p class="note">
+  Gerechnet wird mit dem, was die Automaten <em>ausgegeben</em> haben ({{ gramsPerPortion }} g pro Portion). Was im Napf liegen bleibt,
+  ist mitgezählt – mit den Waagen wird es später genauer.
+</p>

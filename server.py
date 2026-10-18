@@ -14,6 +14,7 @@ Tuya-Cloud nach history.db (siehe history.py).
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -37,6 +38,8 @@ REENABLE_GRACE = timedelta(minutes=2)
 HISTORY_INTERVAL = 900  # Sekunden zwischen zwei Abgleichen mit dem Cloud-Log
 HISTORY_MAX_AGE = 300  # älter als das → die Analyse-Seite stösst selbst einen Abgleich an
 MAX_ANALYSIS_DAYS = 90
+# Futter für die Kostenanalyse – Standard: Purina Pro Plan LiveClear Kitten Truthahn, Sparpaket 2 × 1.4 kg für CHF 45.50
+DEFAULT_FOOD = {"name": "Purina Pro Plan LiveClear Kitten Truthahn", "pricePerKg": 16.25, "packKg": 2.8}
 MAX_MEALS = 10
 MAX_PORTIONS = 12
 DAILY = 0x7F
@@ -266,6 +269,35 @@ async def analysis(days: int = 30):
     return {"now": datetime.now().isoformat(), "feeders": feeders, "error": error, **result}
 
 
+class FoodIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    pricePerKg: float = Field(gt=0, le=500)
+    packKg: float = Field(gt=0, le=50)
+
+
+def load_food() -> dict:
+    stored = history.load_settings()
+    food = dict(DEFAULT_FOOD)
+    if "food.name" in stored:
+        food["name"] = stored["food.name"]
+    for key in ("pricePerKg", "packKg"):
+        if f"food.{key}" in stored:
+            food[key] = float(stored[f"food.{key}"])
+    return food
+
+
+@app.get("/api/food")
+async def get_food():
+    return load_food()
+
+
+@app.put("/api/food")
+async def put_food(body: FoodIn):
+    history.save_settings({"food.name": body.name.strip(), "food.pricePerKg": str(body.pricePerKg), "food.packKg": str(body.packKg)})
+    log.info("Futter: %s, CHF %.2f/kg, Packung %.2f kg", body.name, body.pricePerKg, body.packKg)
+    return load_food()
+
+
 # ---------- Futterplan bearbeiten ----------
 # Neue Mahlzeiten gelten immer täglich; bei bestehenden bleiben Wochentage und aktiv-Status unverändert.
 
@@ -339,16 +371,28 @@ async def delete_meal(key: str, mid: str):
     return {"ok": True}
 
 
+HASHED_ASSET = re.compile(r"-[A-Z0-9]{8}\.(js|css)$")  # von ng build, Name ändert sich bei jedem Build
+
+
 class SpaFiles(StaticFiles):
-    """Liefert für unbekannte Pfade (z. B. /plan nach einem Reload) die index.html der Angular-App."""
+    """Liefert für unbekannte Pfade (z. B. /plan nach einem Reload) die index.html der Angular-App.
+
+    index.html darf nie ungeprüft aus dem Cache kommen, sonst bleibt die Homescreen-App auf dem iPhone
+    nach einem Deployment auf der alten Version. JS/CSS haben einen Hash im Namen und dürfen ewig gecacht werden.
+    """
 
     async def get_response(self, path, scope):
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except StarletteHTTPException as e:
             if e.status_code != 404 or path.startswith("api/"):
                 raise
-            return await super().get_response("index.html", scope)
+            response = await super().get_response("index.html", scope)
+        if response.media_type and response.media_type.startswith("text/html"):
+            response.headers["Cache-Control"] = "no-cache"
+        elif HASHED_ASSET.search(path):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 # Gebaute Angular-App (ng build) mit ausliefern – muss nach den API-Routen stehen.
