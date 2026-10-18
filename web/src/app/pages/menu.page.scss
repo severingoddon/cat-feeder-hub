@@ -1,0 +1,116 @@
+// Menükarte, Mahlzeit-Karten und Knöpfe liegen in styles.scss (gemeinsam mit dem Futterplan).
+:host {
+  display: block;
+}
+
+// ---------- Hero ----------
+.polaroids {
+  position: relative;
+  height: 170px;
+  margin: 0 auto;
+  width: 280px;
+
+  .p {
+    position: absolute;
+    top: 0;
+    width: 120px;
+    height: 150px;
+    object-fit: cover;
+    border: 6px solid var(--sand);
+    border-bottom-width: 22px;
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+
+  .p1 { left: 0; transform: rotate(-9deg) translateY(10px); }
+  .p2 { left: 80px; z-index: 2; transform: rotate(2deg); width: 128px; height: 160px; }
+  .p3 { right: 0; transform: rotate(8deg) translateY(12px); }
+}
+
+// ---------- „als Nächstes“ ----------
+.next-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--sand);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.row.next .spine .time {
+  background: var(--copper);
+  color: var(--on-copper);
+  box-shadow: 0 0 0 5px var(--soft);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.col-head .grams {
+  font-weight: 500;
+  color: var(--sand);
+}
+
+.btn.feed {
+  margin-top: 6px;
+  padding: 5px 10px;
+  background: var(--soft);
+  color: var(--sand);
+  font-size: 0.72rem;
+
+  &.armed {
+    background: linear-gradient(135deg, var(--copper), var(--sand));
+    color: var(--on-sand);
+  }
+}
+
+// ---------- Galerie ----------
+.gallery {
+  text-align: center;
+  margin-top: 32px;
+
+  h2 {
+    font-family: 'Caveat', cursive;
+    font-size: 2.2rem;
+    margin: 0;
+    color: var(--sand);
+  }
+}
+
+.strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 18px 8px 22px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.polaroid {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  background: var(--sand);
+  border: none;
+  padding: 7px 7px 26px;
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  transform: rotate(var(--tilt));
+  transition: transform 0.2s;
+
+  &:active { transform: rotate(0) scale(1.04); }
+
+  img {
+    display: block;
+    width: 130px;
+    height: 165px;
+    object-fit: cover;
+  }
+}
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 10px;
+}

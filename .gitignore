@@ -1,0 +1,18 @@
+.venv/
+captures/
+__pycache__/
+devices.json
+snapshot.json
+tinytuya.json
+feeders.json
+skips.json
+web/node_modules/
+web/.angular/
+web/dist/
+tuya-raw.json
+history.db*
+.idea/
+.DS_Store
+*.bak-*
+# Original-Fotos – verkleinerte Kopien liegen in web/public/cats
+pictures/

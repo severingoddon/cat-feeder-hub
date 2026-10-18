@@ -1,0 +1,404 @@
+:root {
+  // Farbschema „Erde“ – siehe DESIGN.md im Projektroot
+  --bg: #2c3639;
+  --glow: #3a4446;
+  --panel: #313b3d;
+  --meal: #384446;
+  --surface: #3f4e4f;
+  --soft: #4b5a5b;
+  --line: #5b6a6b;
+  --copper: #a27b5c;
+  --sand: #dcd7c9;
+  --ink: #dcd7c9;
+  --muted: #a8a596;
+  --on-sand: #2c3639;
+  --on-copper: #ffffff;
+  --stripe-1: #36413f;
+  --stripe-2: #443f38;
+  --danger-bg: #4a2f2c;
+  --danger: #f2b8ae;
+  // Diagramm-Serien pro Automat (farbenblind-geprüft gegen --panel)
+  --series-links: #c47f3f;
+  --series-rechts: #3f93c4;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  --radius: 18px;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Fredoka', system-ui, sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 0%, var(--glow) 0, transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sand);
+  outline-offset: 2px;
+}
+
+// ================================================================
+// Gemeinsame Bausteine von Hauptseite und Futterplan
+// ================================================================
+
+// ---------- Kopf ----------
+.hero {
+  position: relative;
+  text-align: center;
+  padding: 28px 8px 18px;
+
+  h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 3rem;
+    line-height: 1;
+    margin: 4px 0 2px;
+    color: var(--sand);
+    text-shadow: 2px 2px 0 var(--soft);
+  }
+
+  .paw {
+    display: inline-block;
+    font-size: 2rem;
+    animation: wiggle 2.6s ease-in-out infinite;
+  }
+}
+
+.kicker {
+  margin: 14px 0 0;
+  font-weight: 500;
+  color: var(--sand);
+}
+
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+// runde Icon-Knöpfe oben im Kopf (Burger links, Neu laden rechts)
+.round-btn {
+  position: absolute;
+  top: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1.35rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  place-items: center;
+}
+
+.refresh {
+  right: 4px;
+
+  &.spin { animation: spin 0.9s linear infinite; }
+}
+
+.banner {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+// ---------- Menükarte ----------
+.menu {
+  background: var(--panel);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 8px 8px 14px;
+  position: relative;
+  // Karo-Tischdecken-Rand – kitschig erlaubt
+  border: 3px dashed var(--soft);
+}
+
+.menu-head,
+.timeline .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+}
+
+.menu-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(var(--panel) 85%, transparent);
+  padding: 8px 0 10px;
+}
+
+.col-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 0;
+
+  img {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--copper);
+    box-shadow: 0 0 0 4px var(--soft);
+    cursor: zoom-in;
+  }
+
+  strong {
+    font-size: 0.95rem;
+    margin-top: 6px;
+  }
+
+  small {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+}
+
+.spine-head {
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+
+  // die Zeitachse in der Mitte
+  &::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(var(--soft) 0 8px, transparent 8px 14px);
+  }
+
+  .row {
+    padding: 6px 0;
+    position: relative;
+  }
+}
+
+.spine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  z-index: 1;
+
+  .time {
+    background: var(--sand);
+    color: var(--on-sand);
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.slot {
+  display: flex;
+  min-width: 0;
+}
+
+.empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--soft);
+  font-size: 2rem;
+}
+
+// ---------- Mahlzeit-Karte ----------
+.meal {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--meal);
+  border: 2px solid transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s;
+
+  &.upcoming {
+    background: var(--surface);
+    border-color: var(--copper);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  &.served {
+    opacity: 0.6;
+  }
+
+  &.skipped {
+    background: repeating-linear-gradient(-45deg, var(--stripe-1) 0 10px, var(--stripe-2) 10px 20px);
+    border-color: var(--copper);
+
+    .kibbles {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+  }
+
+  &.paused {
+    opacity: 0.5;
+    border-style: dashed;
+    border-color: var(--line);
+  }
+
+  &.busy {
+    animation: jiggle 0.4s ease-in-out infinite;
+  }
+}
+
+.kibbles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.kibble {
+  width: 12px;
+  height: 10px;
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(circle at 35% 30%, #d9a066, #a8642c);
+}
+
+.amount {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.state {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+// ---------- Knöpfe ----------
+.btn {
+  border: none;
+  border-radius: 12px;
+  padding: 8px 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.15;
+  transition: transform 0.1s;
+
+  &:active { transform: scale(0.95); }
+  &:disabled { opacity: 0.5; }
+
+  &.primary {
+    background: linear-gradient(135deg, var(--copper), var(--sand));
+    color: var(--on-sand);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  &.secondary {
+    background: var(--soft);
+    color: var(--sand);
+  }
+
+  &.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1.5px dashed var(--line);
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+
+  &.undo {
+    background: var(--copper);
+    color: var(--on-copper);
+  }
+}
+
+.loading {
+  text-align: center;
+  padding: 30px 0;
+  color: var(--muted);
+
+  span {
+    display: inline-block;
+    font-size: 2.4rem;
+    animation: swim 1.4s ease-in-out infinite;
+  }
+}
+
+// ---------- Animationen ----------
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(12deg); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--soft); }
+  50% { box-shadow: 0 0 0 9px rgba(162, 123, 92, 0.35); }
+}
+@keyframes jiggle {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+@keyframes swim {
+  0%, 100% { transform: translateX(-12px) rotate(-6deg); }
+  50% { transform: translateX(12px) rotate(6deg); }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateX(-50%) scale(0.8); }
+}
+@keyframes pop-img { from { opacity: 0; transform: scale(0.85); } }
+@keyframes float-up {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-75vh) scale(1.3) rotate(25deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}

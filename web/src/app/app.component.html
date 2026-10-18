@@ -1,0 +1,45 @@
+<button class="round-btn burger" (click)="menuOpen.set(true)" aria-label="Menü öffnen" [attr.aria-expanded]="menuOpen()" aria-controls="drawer">
+  <span></span>
+</button>
+
+<router-outlet />
+
+<div class="scrim" [class.open]="menuOpen()" (click)="closeMenu()"></div>
+<nav id="drawer" class="drawer" [class.open]="menuOpen()" aria-label="Hauptmenü" [attr.inert]="menuOpen() ? null : ''">
+  <h2>Schnauz-Buffet 🐾</h2>
+  <a class="nav-item" routerLink="/" routerLinkActive="active" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }" (click)="closeMenu()">
+    <span class="ico">🍽️</span>
+    <span>Heute auf der Karte<small>Aussetzen &amp; füttern</small></span>
+  </a>
+  <a class="nav-item" routerLink="/plan" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeMenu()">
+    <span class="ico">📝</span>
+    <span>Futterplan<small>Zeiten &amp; Portionen ändern</small></span>
+  </a>
+  <a class="nav-item" routerLink="/analyse" routerLinkActive="active" ariaCurrentWhenActive="page" (click)="closeMenu()">
+    <span class="ico">📊</span>
+    <span>Schnauz-Analyse<small>Wie viel Futter kam raus?</small></span>
+  </a>
+  <div class="foot">
+    <img src="cats/1.jpg" alt="" />
+    <span>Die Chefs schauen zu.</span>
+  </div>
+</nav>
+
+@if (ui.toast(); as t) {
+  <div class="toast" role="status" (click)="ui.toast.set(null)">
+    <img [src]="t.cat" alt="" />
+    <p>{{ t.text }}</p>
+  </div>
+}
+
+<div class="hearts" aria-hidden="true">
+  @for (h of ui.hearts(); track h.id) {
+    <span [style.left.%]="h.x" [style.animation-delay.s]="h.delay">{{ h.char }}</span>
+  }
+</div>
+
+@if (ui.zoomed(); as z) {
+  <div class="lightbox" (click)="ui.zoomed.set(null)">
+    <img [src]="z" alt="Katzenfoto" />
+  </div>
+}

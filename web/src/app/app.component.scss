@@ -1,0 +1,198 @@
+:host {
+  display: block;
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 12px 32px;
+}
+
+// ---------- Burger-Menü ----------
+.burger {
+  left: 16px;
+  z-index: 6;
+
+  span,
+  span::before,
+  span::after {
+    display: block;
+    width: 18px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: var(--sand);
+    position: relative;
+  }
+
+  span::before,
+  span::after {
+    content: '';
+    position: absolute;
+    left: 0;
+  }
+
+  span::before { top: -6px; }
+  span::after { top: 6px; }
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(20, 26, 27, 0.72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+
+  &.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 41;
+  width: min(80vw, 300px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: calc(22px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom))
+    calc(16px + env(safe-area-inset-left));
+  background: var(--panel);
+  border-right: 3px dashed var(--soft);
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.35);
+  transform: translateX(-104%);
+  transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+
+  &.open { transform: none; }
+
+  h2 {
+    font-family: 'Caveat', cursive;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--sand);
+    margin: 2px 0 14px;
+  }
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+
+  .ico {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--soft);
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+  }
+
+  small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  &.active {
+    background: var(--surface);
+    border-color: var(--copper);
+  }
+}
+
+.foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+
+  img {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 3px solid var(--sand);
+    transform: rotate(-6deg);
+  }
+}
+
+// ---------- Overlays ----------
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 10px 14px 10px 10px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  animation: pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+
+  img {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    object-fit: cover;
+    flex: 0 0 auto;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+}
+
+.hearts {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    bottom: -40px;
+    font-size: 1.6rem;
+    animation: float-up 2s ease-out forwards;
+  }
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(20, 26, 27, 0.88);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  cursor: zoom-out;
+
+  img {
+    max-width: 100%;
+    max-height: 85vh;
+    border: 10px solid var(--sand);
+    border-bottom-width: 40px;
+    border-radius: 6px;
+    animation: pop-img 0.3s ease-out;
+  }
+}

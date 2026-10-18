@@ -1,0 +1,112 @@
+<header class="hero">
+  <div class="polaroids" aria-hidden="true">
+    <img class="p p1" src="cats/1.jpg" alt="" />
+    <img class="p p2" src="cats/13.jpg" alt="" />
+    <img class="p p3" src="cats/15.jpg" alt="" />
+  </div>
+  <p class="kicker">{{ greeting() }}</p>
+  <h1>Schnauz-Buffet <span class="paw">🐾</span></h1>
+  <p class="sub">Heute auf der Karte – von Herzen serviert</p>
+  <button class="round-btn refresh" (click)="reload(true)" [class.spin]="loading()" aria-label="Neu laden">↻</button>
+</header>
+
+@if (error()) {
+  <div class="banner">{{ error() }}</div>
+}
+
+<main class="menu">
+  <div class="menu-head">
+    @for (f of feeders(); track f.key; let i = $index) {
+      <div class="col-head" [style.order]="i * 2">
+        <img [src]="ui.avatar(f.key)" alt="" (click)="ui.zoomed.set(ui.avatar(f.key))" />
+        <strong>{{ f.name }}</strong>
+        <small>
+          {{ totals()[i].portions }} Portionen/Tag
+          @if (totals()[i].skipped) { · {{ totals()[i].skipped }}× ausgesetzt }
+        </small>
+        <small class="grams">{{ totals()[i].grams }} g/Tag · {{ totals()[i].gramsPerBowl }} g pro Napf</small>
+        <button class="btn feed" [class.armed]="armedFeed() === f.key" (click)="feed(f, $event)" [disabled]="!!busy()">
+          @if (busy() === f.key + '|feed') { füttert … }
+          @else if (armedFeed() === f.key) { Wirklich? Tippen! }
+          @else { 🐟 1 Portion jetzt }
+        </button>
+      </div>
+      @if (i === 0) {
+        <div class="col-head spine-head" style="order: 1">🕐</div>
+      }
+    }
+  </div>
+
+  @if (loading() && !feeders().length) {
+    <div class="loading">
+      <span>🐟</span>
+      <p>Schaue in die Näpfe …</p>
+    </div>
+  }
+
+  <ol class="timeline">
+    @for (row of rows(); track row.time) {
+      <li class="row" [class.next]="row.isNext">
+        @for (cell of row.cells; track $index; let i = $index) {
+          <div class="slot" [style.order]="i * 2">
+            @if (cell) {
+              <article class="meal" [class]="cell.state" [class.busy]="isBusy(cell)">
+                <div class="kibbles" [attr.aria-label]="cell.meal.portions + ' Portionen'">
+                  @for (k of portions(cell.meal.portions); track $index) {
+                    <span class="kibble"></span>
+                  }
+                  <span class="amount">{{ cell.meal.portions }} {{ cell.meal.portions === 1 ? 'Portion' : 'Portionen' }}</span>
+                </div>
+
+                <div class="state">
+                  @switch (cell.state) {
+                    @case ('upcoming') { <span>kommt heute 💕</span> }
+                    @case ('served') { <span>serviert ✓</span> }
+                    @case ('skipped') { <span>fällt {{ cell.tomorrow ? 'morgen' : 'heute' }} aus 😿</span> }
+                    @case ('paused') { <span>in der App pausiert</span> }
+                  }
+                </div>
+
+                @switch (cell.state) {
+                  @case ('upcoming') {
+                    <button class="btn primary" (click)="toggleSkip(cell, $event)" [disabled]="!!busy()">Für heute aussetzen</button>
+                  }
+                  @case ('served') {
+                    <button class="btn ghost" (click)="toggleSkip(cell, $event)" [disabled]="!!busy()">Morgen aussetzen</button>
+                  }
+                  @case ('skipped') {
+                    <button class="btn undo" (click)="toggleSkip(cell, $event)" [disabled]="!!busy()">Doch füttern 🐟</button>
+                  }
+                }
+              </article>
+            } @else {
+              <div class="empty">·</div>
+            }
+          </div>
+          @if (i === 0) {
+            <div class="spine" style="order: 1">
+              <span class="time">{{ row.time }}</span>
+              @if (row.isNext) {
+                <span class="next-tag">als Nächstes</span>
+              }
+            </div>
+          }
+        }
+      </li>
+    }
+  </ol>
+</main>
+
+<section class="gallery">
+  <h2>Die Chefs 👑</h2>
+  <p class="sub">Für die wir das alles machen</p>
+  <div class="strip">
+    @for (cat of ui.cats; track cat; let i = $index) {
+      <button class="polaroid" [style.--tilt]="(i % 2 ? 1 : -1) * (2 + (i % 3)) + 'deg'" (click)="ui.zoomed.set(cat)">
+        <img [src]="cat" alt="Katzenfoto" loading="lazy" />
+      </button>
+    }
+  </div>
+</section>
+
+<footer>mit 💕 und 🐟 gebaut</footer>

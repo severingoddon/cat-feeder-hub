@@ -1,0 +1,201 @@
+<header class="hero compact">
+  <p class="kicker">Buchhaltung der Chefs 🧾</p>
+  <h1>Schnauz-Analyse</h1>
+  <p class="sub">Was die Automaten wirklich ausgegeben haben</p>
+  <button class="round-btn refresh" (click)="load()" [class.spin]="loading()" aria-label="Neu laden">↻</button>
+</header>
+
+@if (error()) {
+  <div class="banner">{{ error() }}</div>
+}
+
+<div class="ranges" role="group" aria-label="Zeitraum">
+  @for (r of ranges; track r) {
+    <button class="pill" [class.active]="range() === r" [attr.aria-pressed]="range() === r" (click)="range.set(r)">{{ r }} Tage</button>
+  }
+</div>
+
+<section class="tiles">
+  <div class="tile">
+    <span class="label">Heute ausgegeben</span>
+    <strong>{{ stats().today }} g</strong>
+    <small>von {{ planGrams() }} g laut Plan</small>
+  </div>
+  <div class="tile">
+    <span class="label">Schnitt pro Tag</span>
+    <strong>{{ stats().average ?? '–' }} g</strong>
+    <small>{{ stats().doneDays }} ganze {{ stats().doneDays === 1 ? 'Tag' : 'Tage' }}, ohne heute</small>
+  </div>
+  <div class="tile">
+    <span class="label">Ausgesetzt</span>
+    <strong>{{ stats().skippedCount }}×</strong>
+    <small>{{ stats().skipped ? '−' + stats().skipped + ' g' : 'nichts' }} im Zeitraum</small>
+  </div>
+  <div class="tile">
+    <span class="label">Extra von Hand</span>
+    <strong>{{ stats().extraCount }}×</strong>
+    <small>{{ stats().extra ? '+' + stats().extra + ' g' : 'nichts' }} im Zeitraum</small>
+  </div>
+</section>
+
+<section class="card" #chartBox>
+  <h2>Ausgegeben pro Tag</h2>
+  <p class="hint">beide Automaten zusammen · 1 Portion = {{ gramsPerPortion }} g ({{ gramsPerBowl }} g pro Napf)</p>
+
+  <ul class="legend">
+    @for (f of feeders(); track f.key) {
+      <li><span class="swatch" [style.background]="color(f.key)"></span>{{ f.name }}</li>
+    }
+    <li><span class="swatch striped"></span>ausgesetzt</li>
+    <li><span class="swatch plan-key"></span>Soll laut Plan</li>
+  </ul>
+
+  @if (selectedDay(); as d) {
+    <p class="readout" aria-live="polite">
+      <strong>{{ d.long }}{{ d.today ? ' (läuft noch)' : '' }}: {{ d.total }} g</strong>
+      @for (f of d.feeders; track f.key) {
+        <span><span class="dot" [style.background]="color(f.key)"></span>{{ f.grams }} g</span>
+      }
+      @if (d.skipped) { <span>· {{ d.skipped }} g ausgesetzt</span> }
+      @if (d.extra) { <span>· davon {{ d.extra }} g extra</span> }
+    </p>
+  }
+
+  @if (days().length) {
+    <svg class="chart" [attr.width]="width()" [attr.height]="chartHeight" role="img"
+         [attr.aria-label]="'Ausgegebenes Futter pro Tag in Gramm, letzte ' + days().length + ' Tage'">
+      <defs>
+        <pattern id="skip-stripes" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="8" height="8" class="stripe-a" />
+          <rect width="4" height="8" class="stripe-b" />
+        </pattern>
+      </defs>
+
+      @for (t of yTicks(); track t.v) {
+        <line class="grid" [attr.x1]="pad.left" [attr.x2]="width() - pad.right" [attr.y1]="t.y" [attr.y2]="t.y" />
+        <text class="tick" [attr.x]="pad.left - 6" [attr.y]="t.y + 4" text-anchor="end">{{ t.v }}</text>
+      }
+
+      @for (c of columns(); track c.day.date; let i = $index) {
+        <g class="col" [class.today]="c.day.today" [class.dim]="selectedDay().date !== c.day.date">
+          @for (s of c.segments; track s.key) {
+            <path [attr.d]="s.path" [attr.fill]="s.skipped ? 'url(#skip-stripes)' : color(s.key)" />
+          }
+        </g>
+        @if (c.day.today || (days().length - 1 - i) % labelEvery() === 0) {
+          <text class="tick" [class.strong]="selectedDay().date === c.day.date" [attr.x]="c.center" [attr.y]="chartHeight - 6"
+                text-anchor="middle">{{ c.day.label }}</text>
+        }
+        <rect class="hit" [attr.x]="c.x" [attr.y]="pad.top" [attr.width]="(width() - pad.left - pad.right) / days().length"
+              [attr.height]="chartHeight - pad.top - pad.bottom"
+              (mouseenter)="selected.set(c.day.date)" (click)="selected.set(c.day.date)" />
+      }
+
+      @if (planGrams()) {
+        <line class="plan" [attr.x1]="pad.left" [attr.x2]="width() - pad.right" [attr.y1]="planY()" [attr.y2]="planY()" />
+        <text class="plan-label" [attr.x]="width() - pad.right" [attr.y]="planY() - 5" text-anchor="end">Soll {{ planGrams() }} g</text>
+      }
+    </svg>
+  } @else if (!loading()) {
+    <p class="empty">Noch keine Ausgaben im Verlauf 🐾</p>
+  }
+
+  <details>
+    <summary>Als Tabelle</summary>
+    <table>
+      <thead>
+        <tr>
+          <th>Tag</th>
+          @for (f of feeders(); track f.key) { <th>{{ f.name.replace('Automat ', '') }}</th> }
+          <th>Total</th>
+          <th>ausgesetzt</th>
+          <th>extra</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of days().slice().reverse(); track d.date) {
+          <tr>
+            <td>{{ d.long }}</td>
+            @for (f of d.feeders; track f.key) { <td>{{ f.grams }} g</td> }
+            <td><strong>{{ d.total }} g</strong></td>
+            <td>{{ d.skipped ? d.skipped + ' g' : '–' }}</td>
+            <td>{{ d.extra ? d.extra + ' g' : '–' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </details>
+</section>
+
+<section class="card">
+  <h2>Wann kommt Futter?</h2>
+  <p class="hint">jede Ausgabe der letzten {{ rhythmDays().length }} Tage, oben links, unten rechts</p>
+
+  <ul class="legend">
+    @for (f of feeders(); track f.key) {
+      <li><span class="swatch round" [style.background]="color(f.key)"></span>{{ f.name }}</li>
+    }
+    <li><span class="swatch round extra-key"></span>extra von Hand</li>
+    <li><span class="swatch round skip-key"></span>ausgesetzt</li>
+  </ul>
+
+  <p class="readout" aria-live="polite">
+    @if (activeDot(); as d) {
+      <span class="dot" [style.background]="color(d.feeder)"></span>
+      <strong>{{ d.name }}, {{ d.time }}:</strong>
+      @switch (d.kind) {
+        @case ('plan') { {{ d.grams }} g laut Plan }
+        @case ('extra') { {{ d.grams }} g extra von Hand }
+        @case ('skipped') { {{ d.grams }} g ausgesetzt }
+      }
+    } @else {
+      <span class="muted">Tippe auf einen Punkt für Details</span>
+    }
+  </p>
+
+  @if (rhythmDays().length) {
+    <svg class="chart" [attr.width]="width()" [attr.height]="rhythmHeight()" role="img" aria-label="Zeitpunkte der Futterausgaben pro Tag">
+      @for (t of hourTicks(); track t.h) {
+        <line class="grid" [attr.x1]="t.x" [attr.x2]="t.x" y1="0" [attr.y2]="rhythmHeight() - 20" />
+        <text class="tick" [attr.x]="t.x" [attr.y]="rhythmHeight() - 6" text-anchor="middle">{{ t.h }}:00</text>
+      }
+      @for (d of rhythmDays(); track d.date; let i = $index) {
+        <text class="tick" [attr.x]="pad.left - 6" [attr.y]="i * rhythmRow + rhythmRow / 2 + 4" text-anchor="end">{{ d.label }}</text>
+      }
+      @for (d of dots(); track d.id) {
+        <g class="mark" (mouseenter)="selectedDot.set(d.id)" (click)="selectedDot.set(d.id)">
+          <circle class="hit" [attr.cx]="d.x" [attr.cy]="d.y" r="11" />
+          @switch (d.kind) {
+            @case ('skipped') {
+              <circle class="skip" [attr.cx]="d.x" [attr.cy]="d.y" r="4.5" [attr.stroke]="color(d.feeder)" />
+            }
+            @case ('extra') {
+              <rect class="ring" [attr.x]="d.x - 6" [attr.y]="d.y - 6" width="12" height="12" rx="2"
+                    [attr.fill]="color(d.feeder)" [attr.transform]="'rotate(45 ' + d.x + ' ' + d.y + ')'" />
+            }
+            @default {
+              <circle class="ring" [attr.cx]="d.x" [attr.cy]="d.y" r="5" [attr.fill]="color(d.feeder)" />
+            }
+          }
+          @if (selectedDot() === d.id) {
+            <circle class="focus" [attr.cx]="d.x" [attr.cy]="d.y" r="9" />
+          }
+        </g>
+      }
+    </svg>
+  }
+</section>
+
+<section class="card soon">
+  <h2>Bald: gefressen statt nur ausgegeben ⚖️</h2>
+  <p>
+    Hier steht bisher, was die Automaten <em>ausgegeben</em> haben. Sobald die Waagen unter den Automaten stehen,
+    kommt dazu, was die Chefs <em>wirklich gefressen</em> haben, was im Napf liegen bleibt und wie lange der Vorrat noch reicht.
+  </p>
+</section>
+
+<footer>
+  @if (data(); as d) {
+    Verlauf seit {{ dayDate(d.since) }} · zuletzt abgeglichen {{ syncTime(d.syncedAt) }}
+  }
+</footer>

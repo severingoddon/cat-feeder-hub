@@ -1,0 +1,149 @@
+<header class="hero compact">
+  <p class="kicker">Küchenchef-Modus 👨‍🍳</p>
+  <h1>Futterplan</h1>
+  <p class="sub">Futterzeiten anlegen, ändern und streichen</p>
+  <button class="round-btn refresh" (click)="reload(true)" [class.spin]="loading()" aria-label="Neu laden">↻</button>
+</header>
+
+@if (error()) {
+  <div class="banner">{{ error() }}</div>
+}
+
+<main class="menu">
+  <div class="menu-head">
+    @for (f of feeders(); track f.key; let i = $index) {
+      <div class="col-head" [style.order]="i * 2">
+        <img [src]="ui.avatar(f.key)" alt="" (click)="ui.zoomed.set(ui.avatar(f.key))" />
+        <strong>{{ f.name }}</strong>
+        <small>{{ totals()[i].meals }} Zeiten · {{ totals()[i].portions }} Portionen/Tag · {{ totals()[i].portions * gramsPerPortion }} g</small>
+        <button class="btn ghost add-col" (click)="add(f)" [disabled]="totals()[i].meals >= maxMeals">+ Neue Zeit</button>
+      </div>
+      @if (i === 0) {
+        <div class="col-head spine-head" style="order: 1">🕐</div>
+      }
+    }
+  </div>
+
+  @if (loading() && !feeders().length) {
+    <div class="loading">
+      <span>🐟</span>
+      <p>Schaue in den Futterplan …</p>
+    </div>
+  }
+
+  <ol class="timeline">
+    @for (row of rows(); track row.time) {
+      <li class="row">
+        @for (meal of row.cells; track $index; let i = $index) {
+          <div class="slot" [style.order]="i * 2">
+            @if (meal) {
+              <button
+                class="meal edit"
+                [class.paused]="!meal.enabled && !meal.skippedFor"
+                [class.skipped]="meal.skippedFor"
+                [class.fresh]="isFresh(feeders()[i], row.time)"
+                (click)="edit(feeders()[i], meal)"
+                [attr.aria-label]="feeders()[i].name + ', ' + row.time + ' bearbeiten'"
+              >
+                <span class="pencil" aria-hidden="true">✎</span>
+                <span class="kibbles">
+                  @for (k of portions(meal.portions); track $index) {
+                    <span class="kibble"></span>
+                  }
+                  <span class="amount">{{ meal.portions }} {{ meal.portions === 1 ? 'Portion' : 'Portionen' }}</span>
+                </span>
+                @if (meal.skippedFor) {
+                  <span class="state">ausgesetzt</span>
+                } @else if (!meal.enabled) {
+                  <span class="state">in der App pausiert</span>
+                }
+              </button>
+            } @else {
+              <button
+                class="add-here"
+                (click)="add(feeders()[i], row.time)"
+                [disabled]="totals()[i].meals >= maxMeals"
+                [attr.aria-label]="feeders()[i].name + ': ' + row.time + ' auch hier anlegen'"
+              >+</button>
+            }
+          </div>
+          @if (i === 0) {
+            <div class="spine" style="order: 1">
+              <span class="time">{{ row.time }}</span>
+            </div>
+          }
+        }
+      </li>
+    }
+  </ol>
+</main>
+
+<p class="hint">Karte antippen zum Bearbeiten · leeres Feld antippen, um die Zeit dort auch anzulegen</p>
+
+@if (draft(); as d) {
+  <div class="sheet-scrim" (click)="close()"></div>
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="grab"></div>
+
+    <div class="sheet-head">
+      <img [src]="ui.avatar(d.feeder.key)" alt="" />
+      <div>
+        <h3 id="sheet-title">{{ d.id ? d.id + ' bearbeiten' : 'Neue Futterzeit' }}</h3>
+        <p>{{ d.feeder.name }} · täglich</p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="meal-time">Uhrzeit</label>
+      <input id="meal-time" class="time-input" type="time" required [value]="draftTime()" (input)="setTime($any($event.target).value)" />
+      <div class="quick" aria-label="Schnellwahl">
+        @for (t of quickTimes; track t) {
+          <button type="button" [class.on]="t === draftTime()" (click)="setTime(t)">{{ t }}</button>
+        }
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label" id="portions-label">Portionen</span>
+      <div class="stepper" role="group" aria-labelledby="portions-label">
+        <button type="button" (click)="stepPortions(-1)" [disabled]="d.portions <= 1" aria-label="Eine Portion weniger">−</button>
+        <div class="val">
+          <div class="kibbles">
+            @for (k of portions(d.portions); track $index) {
+              <span class="kibble"></span>
+            }
+          </div>
+          <strong aria-live="polite">{{ d.portions }} {{ d.portions === 1 ? 'Portion' : 'Portionen' }}</strong>
+        </div>
+        <button type="button" (click)="stepPortions(1)" [disabled]="d.portions >= maxPortions" aria-label="Eine Portion mehr">+</button>
+      </div>
+    </div>
+
+    @if (!d.id && otherFeeder(); as other) {
+      <label class="switch-row">
+        <span>Auch bei {{ other.name }}<small>Gleiche Zeit und Portionen</small></span>
+        <span class="switch">
+          <input type="checkbox" [checked]="d.both" (change)="setBoth($any($event.target).checked)" />
+          <i></i>
+        </span>
+      </label>
+    }
+
+    @if (conflict(); as c) {
+      <div class="err" role="alert">{{ c }}</div>
+    }
+
+    <div class="actions">
+      <button type="button" class="btn secondary" (click)="close()" [disabled]="saving()">Abbrechen</button>
+      <button type="button" class="btn primary" (click)="save($event)" [disabled]="saving() || !!conflict()">
+        @if (saving()) { speichert … } @else { {{ d.id ? 'Speichern' : 'Zeit anlegen' }} }
+      </button>
+    </div>
+
+    @if (d.id) {
+      <button type="button" class="btn delete" [class.armed]="armedDelete()" (click)="remove($event)" [disabled]="saving()">
+        {{ armedDelete() ? 'Wirklich streichen? Tippen!' : '🗑 Zeit löschen' }}
+      </button>
+    }
+  </section>
+}
