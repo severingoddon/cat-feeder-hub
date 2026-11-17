@@ -1,6 +1,6 @@
 <div align="center">
 
-# Schnauz-Buffet 🐾
+# Cat Feeder Hub 🐾
 
 **A self-hosted control center for two Tuya-based cat feeders: feeding schedules, consumption analysis, food costs and supply planning.**
 
@@ -22,7 +22,7 @@ Reverse-engineered from the vendor app, controlled locally over Wi-Fi, running o
 
 We have three cats and two Oneisall PFD-002 PRO IR feeders. The vendor app can set a schedule, but it can't answer the questions we actually had: *Did they get fed today? How much do they eat? What does the food cost, and when do we need to order more?*
 
-Schnauz-Buffet answers those questions. It is a mobile-first web app (installed on the iPhone home screen) backed by a small FastAPI service. The service talks to the feeders **directly over the local network**, and uses the Tuya cloud only where the devices give it no choice.
+Cat Feeder Hub answers those questions. It is a mobile-first web app (installed on the iPhone home screen) backed by a small FastAPI service. The service talks to the feeders **directly over the local network**, and uses the Tuya cloud only where the devices give it no choice.
 
 The app runs only in the home network. The UI is in German, and the page names below are given as they appear in the app.
 
