@@ -22,6 +22,9 @@ DB_FILE = Path(__file__).with_name("history.db")
 FIRST_SYNC_DAYS = 30  # so weit zurück wird beim allerersten Mal gefragt (die Cloud hat meist weniger)
 SYNC_OVERLAP = 3600  # Sekunden – Einträge kommen in der Cloud manchmal verspätet an
 MATCH_WINDOW = 3  # Minuten Abstand zur Planzeit, ab dem eine Ausgabe als „extra“ gilt
+# Die Geräte stellen die Uhr bei der Zeitumstellung nicht (immer) mit um und füttern dann eine Stunde
+# früher/später als der Plan in Pi-Zeit sagt. Passt eine Ausgabe nicht, wird sie mit ±1 h Uhr-Versatz geprüft.
+CLOCK_SHIFTS = (0, 60, -60)  # Minuten, die die Geräteuhr der Pi-Uhr voraus ist
 
 
 def db() -> sqlite3.Connection:
@@ -202,15 +205,19 @@ def analysis(days: int, current: dict[str, list[Meal]]) -> dict:
             snapshots[feeder].append((ts, []))
 
     events = []
-    matched: set[tuple[str, str, int]] = set()  # (feeder, Tag, Planminute) schon bedient
+    matched: set[tuple[str, str, int]] = set()  # (feeder, Tag laut Geräteuhr, Planminute) schon bedient
     for feeder, ts, portions in feeds:
         at = datetime.fromtimestamp(ts)
-        minute = at.hour * 60 + at.minute
         meals = _plan_at(snapshots[feeder], ts, current.get(feeder, []))
-        slot = next((_minutes(m) for m in meals if 0 <= minute - _minutes(m) <= MATCH_WINDOW
-                     and (feeder, at.date().isoformat(), _minutes(m)) not in matched), None)
-        if slot is not None:
-            matched.add((feeder, at.date().isoformat(), slot))
+        slot = None
+        for shift in CLOCK_SHIFTS:
+            device = at + timedelta(minutes=shift)
+            minute, day = device.hour * 60 + device.minute, device.date().isoformat()
+            slot = next((_minutes(m) for m in meals if 0 <= minute - _minutes(m) <= MATCH_WINDOW
+                         and (feeder, day, _minutes(m)) not in matched), None)
+            if slot is not None:
+                matched.add((feeder, day, slot))
+                break
         events.append({"feeder": feeder, "ts": at.isoformat(), "portions": portions, "extra": slot is None})
     skipped = [{"feeder": f, "ts": datetime.fromtimestamp(ts).isoformat(), "portions": p} for f, ts, p in skips]
 
