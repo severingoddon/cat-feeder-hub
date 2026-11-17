@@ -20,8 +20,10 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -177,6 +179,24 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.middleware("http")
+async def reject_cross_site_writes(request: Request, call_next):
+    """Blocks CSRF: any website opened in a browser on the LAN could otherwise POST to the API.
+
+    POSTs without a body (feed, skip, ...) are "simple requests" that browsers send cross-origin
+    without a CORS preflight. Writes are only accepted if the browser marks them as same-origin.
+    Requests without these headers (curl, scripts) are not affected.
+    """
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("origin")
+        cross_site = request.headers.get("sec-fetch-site") in ("cross-site", "same-site")
+        foreign_origin = origin is not None and urlsplit(origin).netloc != request.headers.get("host")
+        if cross_site or foreign_origin:
+            log.warning("Cross-origin %s %s blocked (origin %s)", request.method, request.url.path, origin)
+            return JSONResponse({"detail": "Cross-origin request blocked"}, status_code=403)
+    return await call_next(request)
 
 
 @app.get("/api/feeders")
